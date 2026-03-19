@@ -1,6 +1,7 @@
 $(shell mkdir -p $(DST_DIR))
 
-TOOLCHAIN ?= GNU
+# TOOLCHAIN ?= GNU
+TOOLCHAIN ?= LLVM
 
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
 
@@ -35,7 +36,7 @@ CFLAGS   += $(CC_OPT) -MMD -Wall -Werror -ggdb $(INCLUDES) \
             -D__ARCH__=$(ARCH) -D__ARCH_$(shell echo $(ARCH) | tr a-z A-Z | tr - _) \
             -DARCH_H=\"arch/$(ARCH).h\" \
             -fno-asynchronous-unwind-tables -fno-builtin -fno-stack-protector \
-			      -Wno-main -mno-relax
+			      -Wno-main -mno-relax -ffreestanding
 CXXFLAGS +=  $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
 CPPFLAGS ?=
 ASFLAGS  += -MMD $(INCLUDES) -mno-relax

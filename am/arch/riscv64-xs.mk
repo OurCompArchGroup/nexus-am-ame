@@ -35,7 +35,7 @@ LDFLAGS += -T $(AM_HOME)/am/src/nemu/isa/riscv/boot/loader64.ld
 image:
 	@echo + LD "->" $(BINARY_REL).elf
 	@$(LD) $(LDFLAGS) --gc-sections -o $(BINARY).elf --start-group $(LINK_FILES) --end-group
-	@$(OBJDUMP) -d $(BINARY).elf > $(BINARY).txt
+	@$(OBJDUMP) --triple=riscv64 --mattr=+zame,+matrix-xuantie-0.6 -d $(BINARY).elf > $(BINARY).txt
 	@echo + OBJCOPY "->" $(BINARY_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(BINARY).elf $(BINARY).bin
 
