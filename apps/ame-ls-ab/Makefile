@@ -1,7 +1,7 @@
 NAME = ame-ls-ab
 SRCS =  mat.c matop.S
 
-LLVM_MC = $(LLVM_HOME)bin/llvm-mc
+LLVM_MC = $(LLVM_HOME)/bin/llvm-mc
 
 APP_DIR ?= $(shell pwd)
 INC_DIR += $(APP_DIR)/include/
