@@ -43,10 +43,14 @@ matrix_restore:
         li a0,0
         la  a1,mat_dist
         li a2,3
-        li a3,65536
+        # li a3,65536
+        li a3,16384
 restore_flag:
         sw a2,0(a1)
-        addi a1,a1,4
+        sw a2,4(a1)
+        sw a2,8(a1)
+        sw a2,12(a1)
+        addi a1,a1,16
         addi a3,a3,-1
         bnez a3,restore_flag
         fence rw,rw
@@ -284,7 +288,7 @@ matrix_mmacc4:
 check_loop4:
         lw      a4, 0(a1)
         bne     a4, a2, check_fail
-        addi    a1, a1, 5
+        addi    a1, a1, 4
         addi    a3, a3, -1
         bnez    a3, check_loop4
         j check_done
