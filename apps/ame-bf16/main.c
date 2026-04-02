@@ -207,7 +207,7 @@ void test_fmv(void) {
 
 int main() {
   printf("=== BF16 Function Tests ===\n\n");
-
+  asm volatile("fsrm zero" : : : "memory");
   test_fmv();
   test_store_load_half();
   test_float_to_bf16();
