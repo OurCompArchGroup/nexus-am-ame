@@ -1,19 +1,19 @@
-#ifndef BF16_H
-#define BF16_H
+#include "bf16.h"
 
-#include <stdint.h>
-
-#define COLOR_GREEN "\033[0;32m"
-#define COLOR_RED "\033[0;31m"
-#define COLOR_YELLOW "\033[0;33m"
-#define COLOR_RESET "\033[0m"
+/*
+** The value in the BASE field of mtvec
+** must always be aligned on a 4-byte boundary
+** aligned(4) means aligned on a 4-byte boundary
+** not aligned on a 2^4 byte boundary
+*/
+__attribute__((aligned(4))) void __am_asm_trap(void) {
+  asm volatile("csrr t0, mepc\n\t"
+               "addi t0, t0, 4\n\t"
+               "csrw mepc, t0\n\t"
+               "mret");
+}
 
 // Assembly implementations
-typedef union {
-  float f;
-  uint32_t u;
-} float_bits;
-
 uint16_t float_to_bf16(float f) {
   uint16_t bf;
   // uint32_t bf;
@@ -24,6 +24,7 @@ uint16_t float_to_bf16(float f) {
                : "ft0");
   return (uint16_t)bf;
 }
+
 float bf16_to_float(uint16_t bf) {
   float f;
   asm volatile("fmv.h.x ft0, %1\n"
@@ -34,6 +35,7 @@ float bf16_to_float(uint16_t bf) {
                : "ft0");
   return f;
 }
+
 void store_half(uint16_t *ptr, float val) {
   asm volatile("fsh %1, 0(%0)"
                :
@@ -129,14 +131,8 @@ float fmv_h_x_soft(uint32_t half_bits) {
   return bf16_to_float_soft((uint16_t)half_bits);
 }
 
-#define MAKE_INF_POSITIVE ((float_bits){.u = 0x7F800000}.f)
-#define MAKE_INF_NEGATIVE ((float_bits){.u = 0xFF800000}.f)
-
-
-#define MAKE_NAN() ((float_bits){.u = 0x7FC00000}.f)
-
 /* Check if single-precision float is infinity */
-static int is_inf(float x) {
+int is_inf(float x) {
   float_bits fb = {.f = x};
   uint32_t exp = (fb.u >> 23) & 0xFF;
   uint32_t mant = fb.u & 0x7FFFFF;
@@ -144,7 +140,7 @@ static int is_inf(float x) {
 }
 
 /* Check if single-precision float is NaN */
-static int is_nan(float x) {
+int is_nan(float x) {
   float_bits fb = {.f = x};
   uint32_t exp = (fb.u >> 23) & 0xFF;
   uint32_t mant = fb.u & 0x7FFFFF;
@@ -152,10 +148,11 @@ static int is_nan(float x) {
 }
 
 /* Get sign bit of single-precision float (0 for positive, 1 for negative) */
-static int get_sign(float x) {
+int get_sign(float x) {
   float_bits fb = {.f = x};
   return (fb.u >> 31) & 0x1;
 }
+
 float my_fabs(float x) {
   union {
     float f;
@@ -164,9 +161,10 @@ float my_fabs(float x) {
   u.u &= 0x7fffffff; // Clear sign bit (highest bit)
   return u.f;
 }
+
 /* Compare two floats for equality (handle special values, consider tolerance)
  */
-static int float_equal(float a, float b, float abs_tol, float rel_tol) {
+int float_equal(float a, float b, float abs_tol, float rel_tol) {
   /* Handle NaN */
   if (is_nan(a) || is_nan(b)) {
     return is_nan(a) && is_nan(b);
@@ -197,23 +195,18 @@ static int float_equal(float a, float b, float abs_tol, float rel_tol) {
 /* bfloat16 utility functions */
 
 /* Check if bf16 is infinity */
-// static int bf16_is_inf(uint16_t bf) {
-//   uint16_t exp = (bf >> 7) & 0xFF;
-//   uint16_t mant = bf & 0x7F;
-//   return (exp == 0xFF) && (mant == 0);
-// }
+int bf16_is_inf(uint16_t bf) {
+  uint16_t exp = (bf >> 7) & 0xFF;
+  uint16_t mant = bf & 0x7F;
+  return (exp == 0xFF) && (mant == 0);
+}
 
-// /* Check if bf16 is NaN */
-// static int bf16_is_nan(uint16_t bf) {
-//   uint16_t exp = (bf >> 7) & 0xFF;
-//   uint16_t mant = bf & 0x7F;
-//   return (exp == 0xFF) && (mant != 0);
-// }
+/* Check if bf16 is NaN */
+int bf16_is_nan(uint16_t bf) {
+  uint16_t exp = (bf >> 7) & 0xFF;
+  uint16_t mant = bf & 0x7F;
+  return (exp == 0xFF) && (mant != 0);
+}
 
-// /* Get sign bit of bf16 */
-// static int bf16_get_sign(uint16_t bf) { return (bf >> 15) & 0x1; }
-
-/* ------------------------------------------------------------------------- */
-/* Test functions */
-
-#endif
+/* Get sign bit of bf16 */
+int bf16_get_sign(uint16_t bf) { return (bf >> 15) & 0x1; }
