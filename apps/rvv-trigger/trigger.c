@@ -93,7 +93,7 @@ void test_vle() {
     // Test 1: trigger off, normal load
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -104,7 +104,7 @@ void test_vle() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -115,7 +115,7 @@ void test_vle() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v0,(%0)"
         :
         :"r"(0x81000000ULL-1)
@@ -126,7 +126,7 @@ void test_vle() {
     printf("test4:");
     setTrigger(0x82000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v0,(%0)"
         :
         :"r"(0x82000000ULL-4)
@@ -136,7 +136,7 @@ void test_vle() {
     // Test 5: trigger off, load from trigger address - 4
     printf("test5:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v1,(%0)"
         :
         :"r"(0x82000000ULL-4)
@@ -147,7 +147,7 @@ void test_vle() {
     printf("test6:");
     setTrigger(0x82000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v0,(%0)"
         :
         :"r"(0x82000000ULL-8)
@@ -161,7 +161,7 @@ void test_vlm() {
     // Test 1: trigger off, normal mask load
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlm.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -172,7 +172,7 @@ void test_vlm() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlm.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -183,7 +183,7 @@ void test_vlm() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,16,e8,m1\n\t"
+        "vsetivli zero,16,e8,m1,ta,ma\n\t"
         "vlm.v v0,(%0)"
         :
         :"r"(0x81000000ULL-1)
@@ -194,7 +194,7 @@ void test_vlm() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,12,e8,m1\n\t"
+        "vsetivli zero,12,e8,m1,ta,ma\n\t"
         "vlm.v v0,(%0)"
         :
         :"r"(0x81000000ULL-1)
@@ -208,7 +208,7 @@ void test_vlse() {
     // Test 1: trigger off, normal strided load
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlse8.v v0,(%0),%1"
         :
         :"r"(0x81000000ULL), "r"(2)
@@ -219,7 +219,7 @@ void test_vlse() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlse8.v v0,(%0),%1"
         :
         :"r"(0x81000000ULL), "r"(2)
@@ -230,7 +230,7 @@ void test_vlse() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlse8.v v0,(%0),%1"
         :
         :"r"(0x81000000ULL-2), "r"(2)
@@ -241,7 +241,7 @@ void test_vlse() {
     printf("test4:");
     setTrigger(0x82000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlse8.v v0,(%0),%1"
         :
         :"r"(0x82000000ULL-8), "r"(2)
@@ -251,7 +251,7 @@ void test_vlse() {
     // Test 5: trigger off, strided load from address - 4 * stride
     printf("test5:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlse8.v v1,(%0),%1"
         :
         :"r"(0x82000000ULL-8), "r"(2)
@@ -262,7 +262,7 @@ void test_vlse() {
     printf("test6:");
     setTrigger(0x82000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vlse8.v v0,(%0),%1"
         :
         :"r"(0x82000000ULL-16), "r"(2)
@@ -275,7 +275,7 @@ void test_vlxe() {
 
     char idx[8] = {0, 5, 4, 3, 1, 2, 7, 6};
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v1, (%0)\n\t"
         :
         :"r"(idx)
@@ -283,7 +283,7 @@ void test_vlxe() {
     // Test 1: trigger off, normal indexed load
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vloxei8.v v0, (%0), v1"
         :
         :"r"(0x81000000ULL)
@@ -294,7 +294,7 @@ void test_vlxe() {
     printf("test1:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vloxei8.v v0, (%0), v1"
         :
         :"r"(0x81000000ULL)
@@ -305,7 +305,7 @@ void test_vlxe() {
     printf("test3:");
     setTrigger(0x82000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vloxei8.v v0, (%0), v1"
         :
         :"r"(0x82000000ULL-7)
@@ -315,7 +315,7 @@ void test_vlxe() {
     // Test 4: trigger off, indexed load from address - 7
     printf("test4:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vloxei8.v v0, (%0), v1"
         :
         :"r"(0x82000000ULL-7)
@@ -326,7 +326,7 @@ void test_vlxe() {
     printf("test5:");
     setTrigger(0x82000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vloxei8.v v0, (%0), v1"
         :
         :"r"(0x82000000ULL-8)
@@ -340,7 +340,7 @@ void test_vleff() {
     // Test 1: trigger off, normal fof load
     printf("test1:");
     asm volatile (
-      "vsetivli zero,16,e8,m1\n\t"
+      "vsetivli zero,16,e8,m1,ta,ma\n\t"
       "vle8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -352,7 +352,7 @@ void test_vleff() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,16,e8,m1\n\t"
+      "vsetivli zero,16,e8,m1,ta,ma\n\t"
       "vle8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -364,7 +364,7 @@ void test_vleff() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,16,e8,m1\n\t"
+      "vsetivli zero,16,e8,m1,ta,ma\n\t"
       "vle8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL-3)
@@ -379,7 +379,7 @@ void test_vlseg() {
     // Test 1: trigger off, normal unit seg load
     printf("test1:");
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -390,7 +390,7 @@ void test_vlseg() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -401,7 +401,7 @@ void test_vlseg() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL-2)
@@ -412,7 +412,7 @@ void test_vlseg() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL-1)
@@ -427,7 +427,7 @@ void test_vlsegff() {
     // Test 1: trigger off, normal fof unit seg load
     printf("test1:");
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -438,7 +438,7 @@ void test_vlsegff() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -449,7 +449,7 @@ void test_vlsegff() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL-4)
@@ -460,7 +460,7 @@ void test_vlsegff() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL-1)
@@ -471,7 +471,7 @@ void test_vlsegff() {
     printf("test5:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlseg2e8ff.v v0,(%0)"
       :
       :"r"(0x81000000ULL-3)
@@ -485,7 +485,7 @@ void test_vlsseg() {
     // Test 1: trigger off, normal strided seg load
     printf("test1:");
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlsseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL), "r"(10)
@@ -496,7 +496,7 @@ void test_vlsseg() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlsseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL), "r"(10)
@@ -507,7 +507,7 @@ void test_vlsseg() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlsseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL-10), "r"(10)
@@ -518,7 +518,7 @@ void test_vlsseg() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vlsseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL-11), "r"(10)
@@ -531,7 +531,7 @@ void test_vlxseg() {
 
     char idx[8] = {0, 50, 40, 30, 10, 20, 70, 60};
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v1, (%0)\n\t"
         :
         :"r"(idx)
@@ -540,7 +540,7 @@ void test_vlxseg() {
     // Test 1: trigger off, normal indexed seg load
     printf("test1:");
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vloxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL)
@@ -551,7 +551,7 @@ void test_vlxseg() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vloxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL)
@@ -562,7 +562,7 @@ void test_vlxseg() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vloxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL-40)
@@ -573,7 +573,7 @@ void test_vlxseg() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vloxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL-71)
@@ -587,7 +587,7 @@ void test_vlr() {
     // Test 1: trigger off, normal whole load
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vl1re8.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -598,7 +598,7 @@ void test_vlr() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vl1re8.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -609,7 +609,7 @@ void test_vlr() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_LOAD);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vl4re8.v v0,(%0)"
         :
         :"r"(0x81000000ULL-16)
@@ -623,7 +623,7 @@ void test_vse() {
     // Test 1: trigger off, normal store
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vse8.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -634,7 +634,7 @@ void test_vse() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vse8.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -645,7 +645,7 @@ void test_vse() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vse8.v v0,(%0)"
         :
         :"r"(0x81000000ULL-1)
@@ -656,7 +656,7 @@ void test_vse() {
     printf("test4:");
     setTrigger(0x82000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vse8.v v0,(%0)"
         :
         :"r"(0x82000000ULL-4)
@@ -666,7 +666,7 @@ void test_vse() {
     // Test 5: trigger off, store to trigger address - 4
     printf("test5:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vse8.v v1,(%0)"
         :
         :"r"(0x82000000ULL-4)
@@ -677,7 +677,7 @@ void test_vse() {
     printf("test6:");
     setTrigger(0x82000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vse8.v v0,(%0)"
         :
         :"r"(0x82000000ULL-8)
@@ -691,7 +691,7 @@ void test_vsm() {
     // Test 1: trigger off, normal mask store
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsm.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -702,7 +702,7 @@ void test_vsm() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsm.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -713,7 +713,7 @@ void test_vsm() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,16,e8,m1\n\t"
+        "vsetivli zero,16,e8,m1,ta,ma\n\t"
         "vsm.v v0,(%0)"
         :
         :"r"(0x81000000ULL-1)
@@ -724,7 +724,7 @@ void test_vsm() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,14,e8,m1\n\t"
+        "vsetivli zero,14,e8,m1,ta,ma\n\t"
         "vsm.v v0,(%0)"
         :
         :"r"(0x81000000ULL-1)
@@ -738,7 +738,7 @@ void test_vsse() {
     // Test 1: trigger off, normal strided store
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsse8.v v0,(%0),%1"
         :
         :"r"(0x81000000ULL), "r"(2)
@@ -749,7 +749,7 @@ void test_vsse() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsse8.v v0,(%0),%1"
         :
         :"r"(0x81000000ULL), "r"(2)
@@ -760,7 +760,7 @@ void test_vsse() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsse8.v v0,(%0),%1"
         :
         :"r"(0x81000000ULL-2), "r"(2)
@@ -771,7 +771,7 @@ void test_vsse() {
     printf("test4:");
     setTrigger(0x82000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsse8.v v0,(%0),%1"
         :
         :"r"(0x82000000ULL-8), "r"(2)
@@ -781,7 +781,7 @@ void test_vsse() {
     // Test 5: trigger off, strided store to address - 4 * stride
     printf("test5:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsse8.v v1,(%0),%1"
         :
         :"r"(0x82000000ULL-8), "r"(2)
@@ -792,7 +792,7 @@ void test_vsse() {
     printf("test6:");
     setTrigger(0x82000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsse8.v v0,(%0),%1"
         :
         :"r"(0x82000000ULL-16), "r"(2)
@@ -805,7 +805,7 @@ void test_vsxe() {
 
     char idx[8] = {0, 5, 4, 3, 1, 2, 7, 6};
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v1, (%0)\n\t"
         :
         :"r"(idx)
@@ -814,7 +814,7 @@ void test_vsxe() {
     // Test 1: trigger off, normal indexed store
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsoxei8.v v0, (%0), v1"
         :
         :"r"(0x81000000ULL)
@@ -825,7 +825,7 @@ void test_vsxe() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsoxei8.v v0, (%0), v1"
         :
         :"r"(0x81000000ULL)
@@ -836,7 +836,7 @@ void test_vsxe() {
     printf("test3:");
     setTrigger(0x82000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsoxei8.v v0, (%0), v1"
         :
         :"r"(0x82000000ULL-7)
@@ -846,7 +846,7 @@ void test_vsxe() {
     // Test 4: trigger off, indexed store to address - 7
     printf("test4:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsoxei8.v v0, (%0), v1"
         :
         :"r"(0x82000000ULL-7)
@@ -857,7 +857,7 @@ void test_vsxe() {
     printf("test5:");
     setTrigger(0x82000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vsoxei8.v v0, (%0), v1"
         :
         :"r"(0x82000000ULL-8)
@@ -871,7 +871,7 @@ void test_vsseg() {
     // Test 1: trigger off, normal unit seg store
     printf("test1:");
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -882,7 +882,7 @@ void test_vsseg() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL)
@@ -893,7 +893,7 @@ void test_vsseg() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL-2)
@@ -904,7 +904,7 @@ void test_vsseg() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsseg2e8.v v0,(%0)"
       :
       :"r"(0x81000000ULL-1)
@@ -918,7 +918,7 @@ void test_vssseg() {
     // Test 1: trigger off, normal strided seg store
     printf("test1:");
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vssseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL), "r"(10)
@@ -929,7 +929,7 @@ void test_vssseg() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vssseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL), "r"(10)
@@ -940,7 +940,7 @@ void test_vssseg() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vssseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL-10), "r"(10)
@@ -951,7 +951,7 @@ void test_vssseg() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vssseg2e8.v v0,(%0),%1"
       :
       :"r"(0x81000000ULL-11), "r"(10)
@@ -964,7 +964,7 @@ void test_vsxseg() {
 
     char idx[8] = {0, 50, 40, 30, 10, 20, 70, 60};
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vle8.v v1, (%0)\n\t"
         :
         :"r"(idx)
@@ -973,7 +973,7 @@ void test_vsxseg() {
     // Test 1: trigger off, normal indexed seg store
     printf("test1:");
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsoxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL)
@@ -984,7 +984,7 @@ void test_vsxseg() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsoxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL)
@@ -995,7 +995,7 @@ void test_vsxseg() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsoxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL-40)
@@ -1006,7 +1006,7 @@ void test_vsxseg() {
     printf("test4:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile (
-      "vsetivli zero,8,e8,m1\n\t"
+      "vsetivli zero,8,e8,m1,ta,ma\n\t"
       "vsoxseg2ei8.v v4,(%0),v1"
       :
       :"r"(0x81000000ULL-71)
@@ -1020,7 +1020,7 @@ void test_vsr() {
     // Test 1: trigger off, normal whole store
     printf("test1:");
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vs1r.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -1031,7 +1031,7 @@ void test_vsr() {
     printf("test2:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vs1r.v v0,(%0)"
         :
         :"r"(0x81000000ULL)
@@ -1042,7 +1042,7 @@ void test_vsr() {
     printf("test3:");
     setTrigger(0x81000000ULL, TRIGGER_STORE);
     asm volatile(
-        "vsetivli zero,8,e8,m1\n\t"
+        "vsetivli zero,8,e8,m1,ta,ma\n\t"
         "vs4r.v v0,(%0)"
         :
         :"r"(0x81000000ULL-16)

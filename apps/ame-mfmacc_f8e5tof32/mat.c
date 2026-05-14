@@ -8,9 +8,9 @@ int matrix_mfmacc1(void);
 int matrix_mfmacc2(void);
 int matrix_mfmacc3(void);
 int matrix_mfmacc4(void);
-extern  uint16_t mat_dist[];
-extern  uint16_t mat_target[];
-extern  uint16_t mat_target_double[];
+extern  uint32_t mat_dist[];
+extern  uint32_t mat_target[];
+extern  uint32_t mat_target_double[];
 #define Len 16
 void print_matrix_part(const char *name, const void *data, int elem_size,
                        int rows, int cols) {
@@ -44,8 +44,8 @@ int main() {
     printf("MFMACC0 Test passed!\n");
   } else {
     printf("bad test!!\n");
-    print_matrix_part("Matrix destination", mat_dist, 2, 4, 4);
-    print_matrix_part("Matrix target", mat_target, 2, 4, 4);
+    print_matrix_part("Matrix destination", mat_dist, 4, 128, 128);
+    print_matrix_part("Matrix target", mat_target, 4, 128, 128);
   }
   matrix_restore();
 
@@ -53,32 +53,32 @@ int main() {
     printf("MFMACC1 Test passed!\n");
   } else {
     printf("bad test!!\n");
-    print_matrix_part("Matrix destination", mat_dist, 2, 4, 4);
-    print_matrix_part("Matrix target", mat_target, 2, 4, 4);
+    print_matrix_part("Matrix destination", mat_dist, 4, 128, 128);
+    print_matrix_part("Matrix target", mat_target, 4, 128, 128);
   }
   matrix_restore();
   if (matrix_mfmacc2() == 0) {
     printf("MFMACC2 Test passed!\n");
   } else {
     printf("bad test!!\n");
-    print_matrix_part("Matrix destination", mat_dist, 2, 4, 4);
-    print_matrix_part("Matrix target", mat_target, 2, 4, 4);
+    print_matrix_part("Matrix destination", mat_dist, 4, 128, 128);
+    print_matrix_part("Matrix target", mat_target, 4, 128, 128);
   }
   matrix_restore();
   if (matrix_mfmacc3() == 0) {
     printf("MFMACC3 Test passed!\n");
   } else {
     printf("bad test!!\n");
-    print_matrix_part("Matrix destination", mat_dist, 2, 4, 4);
-    print_matrix_part("Matrix target", mat_target, 2, 4, 4);
+    print_matrix_part("Matrix destination", mat_dist, 4, 128, 128);
+    print_matrix_part("Matrix target", mat_target, 4, 128, 128);
   }
   matrix_restore();
   if (matrix_mfmacc4() == 0) {
     printf("MFMACC4 Test passed!\n");
   } else {
     printf("bad test!!\n");
-    print_matrix_part("Matrix destination", mat_dist, 2, 4, 4);
-    print_matrix_part("Matrix target", mat_target_double, 2, 4, 4);
+    print_matrix_part("Matrix destination", mat_dist, 4, 128, 128);
+    print_matrix_part("Matrix target", mat_target_double, 4, 128, 128);
   }
   matrix_restore();
   return 0;
