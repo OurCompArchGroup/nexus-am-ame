@@ -1,6 +1,5 @@
-NAME = ame-gemm
-SRCS =  mat.c matop.S
-
+NAME = ame-ls-word
+SRCS = mat.c matop.S
 
 # Zames matrix extension: assembled directly by clang via -march extensions.
 # zames     = main-body matrix instructions

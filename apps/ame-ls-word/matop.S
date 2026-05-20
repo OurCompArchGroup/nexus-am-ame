@@ -1,3 +1,9 @@
+// Zames v0.6.0 port of ame-ls_word.
+// mlc/msc   = load/store accumulator (non-transposed)
+// mlct/msct = load/store accumulator (transposed)
+// All acc registers must be programmed via msetcfg before first use.
+// Only acc registers (int32) are used here; no tile registers accessed.
+
 .text
 .global matrix_init
 .global matrix_ls
@@ -15,7 +21,7 @@
 .align 8
 
 mat_a:
-    .rept   16384              
+    .rept   16384
     .word   0
     .endr
 
@@ -25,11 +31,23 @@ mat_a_t:
     .endr
 
 mat_dist:
-    .rept    65536              
+    .rept    65536
     .word   5
     .endr
 
 .section .text
+
+// ---------------------------------------------------------------------------
+// mcfg type_code constants (table_sel = 0)
+//   int32 = 0x04
+// ---------------------------------------------------------------------------
+.equ MCFG_INT32, 0x04
+
+// Helper macro: program type_code into mcfgN via scratch GPR t6.
+.macro SETCFG mcfg_sel, type_code
+        li      t6, \type_code
+        msetcfg \mcfg_sel, t6
+.endm
 
 matrix_init:
         lui a0, 8194
@@ -56,7 +74,14 @@ matrix_init:
 
         fence iorw,iorw
 
+        // Program acc0..acc3 as int32 (mcfg4..mcfg7)
+        SETCFG  mcfg4, MCFG_INT32
+        SETCFG  mcfg5, MCFG_INT32
+        SETCFG  mcfg6, MCFG_INT32
+        SETCFG  mcfg7, MCFG_INT32
+
         ret
+
 matrix_ls:
         la      t0, mat_a
         li  t1,512
@@ -64,25 +89,25 @@ matrix_ls:
         li      t5,512
         li      a7,65536
         fence iorw,iorw
-        msyncreset      tok1
-        mlce32  acc0, (t0), t1
-        msce32 acc0, (t4), t5
+        msyncregreset   sync1
+        mlc     acc0, (t0), t1
+        msc     acc0, (t4), t5
 
         add    t4, t4, a7
-        mlce32  acc1, (t0), t1
-        msce32 acc1, (t4), t5
+        mlc     acc1, (t0), t1
+        msc     acc1, (t4), t5
 
         add    t4, t4, a7
-        mlce32  acc2, (t0), t1
-        msce32 acc2, (t4), t5
-        
+        mlc     acc2, (t0), t1
+        msc     acc2, (t4), t5
+
         add    t4, t4, a7
-        mlce32  acc3, (t0), t1
-        msce32 acc3, (t4), t5
-        
-        mrelease        tok1
+        mlc     acc3, (t0), t1
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
         li a0, 1
-        macquire        a0, tok1
+        macquire        sync1, a0
         fence iorw,iorw
         li      a0,0
         la      a1, mat_dist
@@ -111,25 +136,25 @@ matrix_ltst:
         li      t5,512
         li      a7,65536
 
-        msyncreset      tok1
-        mlcte32  acc0, (t0), t1
-        mscte32 acc0, (t4), t5
+        msyncregreset   sync1
+        mlct    acc0, (t0), t1
+        msct    acc0, (t4), t5
 
         add    t4, t4, a7
-        mlcte32  acc1, (t0), t1
-        mscte32 acc1, (t4), t5
+        mlct    acc1, (t0), t1
+        msct    acc1, (t4), t5
 
         add    t4, t4, a7
-        mlcte32  acc2, (t0), t1
-        mscte32 acc2, (t4), t5
-        
+        mlct    acc2, (t0), t1
+        msct    acc2, (t4), t5
+
         add    t4, t4, a7
-        mlcte32  acc3, (t0), t1
-        mscte32 acc3, (t4), t5
-        
-        mrelease        tok1
+        mlct    acc3, (t0), t1
+        msct    acc3, (t4), t5
+
+        mrelease        sync1
         li a0, 1
-        macquire        a0, tok1
+        macquire        sync1, a0
         fence iorw,iorw
         li      a0,0
         la      a1, mat_dist
@@ -159,25 +184,25 @@ matrix_lts:
         li      t5,512
         li      a7,65536
 
-        msyncreset      tok1
-        mlcte32  acc0, (t0), t1
-        msce32 acc0, (t4), t5
+        msyncregreset   sync1
+        mlct    acc0, (t0), t1
+        msc     acc0, (t4), t5
 
         add    t4, t4, a7
-        mlcte32  acc1, (t0), t1
-        msce32 acc1, (t4), t5
+        mlct    acc1, (t0), t1
+        msc     acc1, (t4), t5
 
         add    t4, t4, a7
-        mlcte32  acc2, (t0), t1
-        msce32 acc2, (t4), t5
-        
+        mlct    acc2, (t0), t1
+        msc     acc2, (t4), t5
+
         add    t4, t4, a7
-        mlcte32  acc3, (t0), t1
-        msce32 acc3, (t4), t5
-        
-        mrelease        tok1
+        mlct    acc3, (t0), t1
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
         li a0, 1
-        macquire        a0, tok1
+        macquire        sync1, a0
         fence iorw,iorw
         li      a0,0
         la      a1, mat_dist
@@ -206,27 +231,27 @@ matrix_lst:
         li  t1,512
         la      t4,mat_dist
         li      t5,512
-        li      a7,65536  
+        li      a7,65536
 
-        msyncreset      tok1
-        mlce32  acc0, (t0), t1
-        mscte32 acc0, (t4), t5
-
-        add    t4, t4, a7
-        mlce32  acc1, (t0), t1
-        mscte32 acc1, (t4), t5
+        msyncregreset   sync1
+        mlc     acc0, (t0), t1
+        msct    acc0, (t4), t5
 
         add    t4, t4, a7
-        mlce32  acc2, (t0), t1
-        mscte32 acc2, (t4), t5
-        
+        mlc     acc1, (t0), t1
+        msct    acc1, (t4), t5
+
         add    t4, t4, a7
-        mlce32  acc3, (t0), t1
-        mscte32 acc3, (t4), t5
-        
-        mrelease        tok1
+        mlc     acc2, (t0), t1
+        msct    acc2, (t4), t5
+
+        add    t4, t4, a7
+        mlc     acc3, (t0), t1
+        msct    acc3, (t4), t5
+
+        mrelease        sync1
         li a0, 1
-        macquire        a0, tok1
+        macquire        sync1, a0
         fence iorw,iorw
         li      a0,0
         la      a1, mat_dist
@@ -251,12 +276,11 @@ check_lst:
 
 
 check_fail:
-        li      a0, 1         # 发现错误，设置错误标志为 1
-        
+        li      a0, 1         // error: set return value to 1
+
 check_done:
         ret
-# void* get_matrix_c(void)
+// void* get_matrix_a(void)
 get_matrix_a:
         la a0, mat_a
         ret
-

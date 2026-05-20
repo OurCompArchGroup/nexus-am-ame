@@ -7,6 +7,7 @@ extern uint32_t mat_dist[];
 
 int main() {
   matrix_init();
+  printf("GEMM Test started!\n");
   if (matrix_gemm() == 0) {
     printf("GEMM Test passed!\n");
   } else {

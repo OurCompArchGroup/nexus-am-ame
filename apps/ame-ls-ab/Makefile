@@ -1,20 +1,9 @@
 NAME = ame-ls-ab
-SRCS =  mat.c matop.S
+SRCS = mat.c matop.S
 
-LLVM_MC = $(LLVM_HOME)/bin/llvm-mc
-
-APP_DIR ?= $(shell pwd)
-INC_DIR += $(APP_DIR)/include/
-DST_DIR ?= $(APP_DIR)/build/$(ARCH)/
-define llvm-mc-rule
-$(DST_DIR)/$(notdir $(1:.S=.o)): $(1)
-	@echo "[LLVM-MC] Assembling $$< with Matrix extensions"
-	@mkdir -p $(DST_DIR)
-	$(LLVM_MC) -triple=riscv64 -mattr=+zame,+matrix-xuantie-0.6 -filetype=obj $$< -o $$@
-endef
-
-
-
-$(eval $(call llvm-mc-rule,matop.S))
+# Zames matrix extension: assembled directly by clang via -march extensions.
+# zames     = main-body matrix instructions
+# zmasync   = optional async store synchronization extension
+MARCH = rv64gc_zba_zbb_zbc_zbs_zbkb_zbkc_zbkx_zknd_zkne_zknh_zkr_zksed_zksh_zkt_zames_zmasync
 
 include $(AM_HOME)/Makefile.app
