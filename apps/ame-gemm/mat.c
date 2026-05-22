@@ -2,11 +2,12 @@
 #include <stdint.h>
 
 void matrix_init(void);
-int  matrix_gemm(void);
+int matrix_gemm(void);
 extern uint32_t mat_dist[];
 
 int main() {
   matrix_init();
+  printf("GEMM Test started!\n");
   if (matrix_gemm() == 0) {
     printf("GEMM Test passed!\n");
   } else {
