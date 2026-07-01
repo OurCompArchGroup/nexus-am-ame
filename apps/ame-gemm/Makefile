@@ -1,7 +1,6 @@
 NAME = ame-gemm
 SRCS =  mat.c matop.S
 
-# llvm-mc -triple=riscv64 -mattr=+zame,+matrix-xuantie-0.6 ../matop.S -filetype=obj
 LLVM_MC = $(LLVM_HOME)/bin/llvm-mc
 
 APP_DIR ?= $(shell pwd)
@@ -13,8 +12,6 @@ $(DST_DIR)/$(notdir $(1:.S=.o)): $(1)
 	@mkdir -p $(DST_DIR)
 	$(LLVM_MC) -triple=riscv64 -mattr=+zame,+matrix-xuantie-0.6 -filetype=obj $$< -o $$@
 endef
-
-
 
 $(eval $(call llvm-mc-rule,matop.S))
 
