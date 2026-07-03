@@ -27,6 +27,8 @@ else
   $(error TOOLCHAIN must be either 'GNU' or 'LLVM')
 endif
 
+OBJDUMP_FLAGS ?=
+
 INCLUDES += $(addprefix -I, $(INC_DIR)) -I$(AM_HOME)/am/
 INCLUDES += -I$(AM_HOME)/am/include
 CC_OPT	 ?= -O2
