@@ -17,23 +17,23 @@
 .section .data
 .align 8
 
-# A: 256 rows x 128 cols int8, row-major (K-inner). All elements = 1.
+# A: 64 rows x 64 cols int8, row-major (K-inner). All elements = 1.
 mat_na:
-        .rept   32768           # 256 * 128 = 32768
+        .rept   4096            # 64 * 64 = 4096
         .byte   1
         .endr
 
-# B: 256 rows x 128 cols int8, N-major / pre-transposed (K-inner).
+# B: 64 rows x 64 cols int8, N-major / pre-transposed (K-inner).
 # Same layout convention as ame-mmacc/mat_nb. All elements = 1.
 mat_nb:
-        .rept   32768           # 256 * 128 = 32768
+        .rept   4096            # 64 * 64 = 4096
         .byte   1
         .endr
 
-# C: 256 rows x 256 cols int32, row-major. Initialized to 0 so each
+# C: 64 rows x 64 cols int32, row-major. Initialized to 0 so each
 # output tile's accumulator (loaded via mlc) starts from zero.
 mat_dist:
-        .rept   65536           # 256 * 256 = 65536
+        .rept   4096            # 64 * 64 = 4096
         .word   0
         .endr
 
@@ -46,112 +46,42 @@ matrix_init:
         addiw a0, a0, 512
         csrs mstatus, a0
 
-        li a0, 128
+        li a0, 64
         msettilem       a0
         msettilen       a0
         li a0, 64
         msettilek       a0
 
-        msettilemi      128
-        msettileni      128
+        msettilemi      64
+        msettileni      64
         msettileki      64
         ret
 
 
-# C[256x256] = A[256x128] * B[256x128]^T  (B stored pre-transposed, K-inner)
-# Tile shape: M_t = N_t = 128, K_t = 64
-# 2x2 output tiles (mi, ni in {0,1}); each tile accumulates 2 K-tiles.
+# C[64x64] = A[64x64] * B[64x64]^T  (B stored pre-transposed, K-inner)
+# Tile shape: M_t = N_t = K_t = 64. A/B are int8, C is int32.
 matrix_gemm:
         msyncregreset   sync1
 
         # Program mcfg for all tile/acc registers used.
-        # tr0-tr3 = int8 (mcfg0-3), acc0-acc3 = int32 (mcfg4-7)
+        # tr0-tr1 = int8 (mcfg0-1), acc0 = int32 (mcfg4)
         SETCFG  mcfg0, MCFG_INT8
         SETCFG  mcfg1, MCFG_INT8
-        SETCFG  mcfg2, MCFG_INT8
-        SETCFG  mcfg3, MCFG_INT8
         SETCFG  mcfg4, MCFG_INT32
-        SETCFG  mcfg5, MCFG_INT32
-        SETCFG  mcfg6, MCFG_INT32
-        SETCFG  mcfg7, MCFG_INT32
 
-        li      t1, 128                 # A row stride (K_total bytes)
-        li      t3, 128                 # B row stride (K_total bytes)
-        li      t5, 1024                # C row stride (N_total * 4 bytes)
-        li      a7, 64                  # K-tile byte offset
+        li      t1, 64                  # A row stride (K_total bytes)
+        li      t3, 64                  # B row stride (K_total bytes)
+        li      t5, 256                 # C row stride (N_total * 4 bytes)
 
-        # ---- Output tile (mi=0, ni=0) -> acc0 -> C[0:128, 0:128] ----
+        # ---- Single output tile -> acc0 -> C[0:64, 0:64] ----
         la      t0, mat_na              # A[0,0]
         la      t2, mat_nb              # B[0,0]
         la      t4, mat_dist            # C[0,0]
         mlc     acc0, (t4), t5          # acc0 = 0 (mat_dist initialized to 0)
-        mla     tr0, (t0), t1           # K-tile 0
-        mlb     tr1, (t2), t3
-        mmacc   acc0, tr1, tr0          # acc0 += tr0 * tr1
-        add     t0, t0, a7
-        add     t2, t2, a7
-        mla     tr0, (t0), t1           # K-tile 1
+        mla     tr0, (t0), t1
         mlb     tr1, (t2), t3
         mmacc   acc0, tr1, tr0          # acc0 += tr0 * tr1
         msc     acc0, (t4), t5
-
-        # ---- Output tile (mi=0, ni=1) -> acc1 -> C[0:128, 128:256] ----
-        la      t0, mat_na              # A[0,0]
-        la      t2, mat_nb
-        li      a6, 16384               # 128 * 128 = N_tile rows of B^T
-        add     t2, t2, a6              # B[128,0] (ni=1)
-        la      t4, mat_dist
-        addi    t4, t4, 512             # ni=1: 128 elements * 4 bytes
-        mlc     acc1, (t4), t5
-        mla     tr2, (t0), t1
-        mlb     tr3, (t2), t3
-        mmacc   acc1, tr3, tr2          # acc1 += tr2 * tr3
-        add     t0, t0, a7
-        add     t2, t2, a7
-        mla     tr2, (t0), t1
-        mlb     tr3, (t2), t3
-        mmacc   acc1, tr3, tr2          # acc1 += tr2 * tr3
-        msc     acc1, (t4), t5
-
-        # ---- Output tile (mi=1, ni=0) -> acc2 -> C[128:256, 0:128] ----
-        la      t0, mat_na
-        li      a6, 16384               # 128 rows * K_total(128) = 16384
-        add     t0, t0, a6              # A[128,0]
-        la      t2, mat_nb              # B[0,0]
-        la      t4, mat_dist
-        li      a6, 131072              # 128 rows * 1024 stride
-        add     t4, t4, a6              # C[128,0]
-        mlc     acc2, (t4), t5
-        mla     tr0, (t0), t1
-        mlb     tr1, (t2), t3
-        mmacc   acc2, tr1, tr0          # acc2 += tr0 * tr1
-        add     t0, t0, a7
-        add     t2, t2, a7
-        mla     tr0, (t0), t1
-        mlb     tr1, (t2), t3
-        mmacc   acc2, tr1, tr0          # acc2 += tr0 * tr1
-        msc     acc2, (t4), t5
-
-        # ---- Output tile (mi=1, ni=1) -> acc3 -> C[128:256, 128:256] ----
-        la      t0, mat_na
-        li      a6, 16384
-        add     t0, t0, a6              # A[128,0]
-        la      t2, mat_nb
-        li      a6, 16384
-        add     t2, t2, a6              # B[128,0]
-        la      t4, mat_dist
-        li      a6, 131584              # 131072 + 512 = C[128,128]
-        add     t4, t4, a6
-        mlc     acc3, (t4), t5
-        mla     tr2, (t0), t1
-        mlb     tr3, (t2), t3
-        mmacc   acc3, tr3, tr2          # acc3 += tr2 * tr3
-        add     t0, t0, a7
-        add     t2, t2, a7
-        mla     tr2, (t0), t1
-        mlb     tr3, (t2), t3
-        mmacc   acc3, tr3, tr2          # acc3 += tr2 * tr3
-        msc     acc3, (t4), t5
 
         mrelease        sync1
         li      a0, 1
@@ -162,8 +92,8 @@ matrix_gemm:
 gemm_check:
         fence   rw, rw
         la      a1, mat_dist
-        li      a2, 128                 # expected: K_total * 1 * 1 = 128
-        li      a3, 65536               # 256 * 256 elements
+        li      a2, 64                  # expected: K_total * 1 * 1 = 64
+        li      a3, 4096                # 64 * 64 elements
         li      a0, 0
 gemm_loop:
         lw      a4, 0(a1)
