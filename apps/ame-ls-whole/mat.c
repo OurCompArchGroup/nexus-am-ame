@@ -18,11 +18,13 @@
 #define BUF_BYTES  ACC_BYTES        // buffers sized to the largest whole reg
 #define SENTINEL   0x5a
 
-void matrix_init(void);
+void matrix_init_128(void);
+void matrix_init_64(void);
 int matrix_whole_c(void);
 int matrix_whole_a(void);
 int matrix_whole_b(void);
-int matrix_whole_indep(void);
+int matrix_whole_indep_128(void);
+int matrix_whole_indep_64(void);
 
 extern uint8_t mat_src[];
 extern uint8_t mat_dist[];
@@ -68,14 +70,28 @@ static void run(const char *name, int (*fn)(void), int nbytes) {
   }
 }
 
-int main() {
+int main(const char *args) {
+  int mode64 = (args && strcmp(args, "64") == 0);
+
+  if (args && args[0] && !mode64 && strcmp(args, "128") != 0) {
+    printf("Unknown mainargs \"%s\"; expected {128, 64}\n", args);
+    return 1;
+  }
+
   fill_src();
-  matrix_init();
+  if (mode64) {
+    matrix_init_64();
+    printf("Whole load/store mode=64\n");
+  } else {
+    matrix_init_128();
+    printf("Whole load/store mode=128\n");
+  }
 
   run("Whole C (mlc.whole/msc.whole)", matrix_whole_c, ACC_BYTES);
   run("Whole A (mla.whole/msa.whole)", matrix_whole_a, TILE_BYTES);
   run("Whole B (mlb.whole/msb.whole)", matrix_whole_b, TILE_BYTES);
-  run("Whole tile-independent store", matrix_whole_indep, ACC_BYTES);
+  run("Whole tile-independent store",
+      mode64 ? matrix_whole_indep_64 : matrix_whole_indep_128, ACC_BYTES);
 
   return 0;
 }

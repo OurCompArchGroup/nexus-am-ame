@@ -7,12 +7,17 @@
 // All tile/acc registers must be programmed via msetcfg before first use.
 
 .text
-.global matrix_init
+.global matrix_init_128
+.global matrix_init_64
 .global restore_mat
-.global matrix_ab
-.global matrix_atb
-.global matrix_abt
-.global matrix_atbt
+.global matrix_ab_128
+.global matrix_ab_64
+.global matrix_atb_128
+.global matrix_atb_64
+.global matrix_abt_128
+.global matrix_abt_64
+.global matrix_atbt_128
+.global matrix_atbt_64
 
 .global mat_dist
 .global mat_a
@@ -75,7 +80,7 @@ restore_mat_b_flag:
         bnez a6, restore_mat_b_flag
         ret
 
-matrix_init:
+matrix_init_128:
         // Enable matrix context (mstatus.MS=01) plus FS and VS for safety.
         lui a0, 8194
         addiw a0, a0, 512
@@ -104,8 +109,34 @@ matrix_init:
 
         ret
 
+matrix_init_64:
+        // Enable matrix context (mstatus.MS=01) plus FS and VS for safety.
+        lui a0, 8194
+        addiw a0, a0, 512
+        csrs mstatus, a0
 
-matrix_ab:
+        li a0, 64
+        msettilem       a0
+        msettilen       a0
+        msettilek       a0
+
+        msettilemi      64
+        msettileni      64
+        msettileki      64
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_INT8
+        SETCFG  mcfg4, MCFG_INT32
+        SETCFG  mcfg5, MCFG_INT32
+        SETCFG  mcfg6, MCFG_INT32
+        SETCFG  mcfg7, MCFG_INT32
+
+        ret
+
+
+matrix_ab_128:
         la a4,mat_a
         li  a5,2
         sb  a5,1(a4)
@@ -186,7 +217,7 @@ check_ab_2:
 
         j check_done
 
-matrix_atb:
+matrix_atb_128:
         fence iorw,iorw
         la a4,mat_a
         li  a5,2
@@ -267,7 +298,7 @@ check_atb_2:
         j check_done
 
 
-matrix_abt:
+matrix_abt_128:
         fence iorw,iorw
         la a4,mat_b
         li  a5, 1
@@ -351,7 +382,7 @@ check_abt_2:  // rest 127
 
 
 
-matrix_atbt:
+matrix_atbt_128:
         fence iorw,iorw
         la a4,mat_b
         li  a5, 1
@@ -448,6 +479,319 @@ check_atbt_3:
         bnez a7,check_atbt_big // big loop for next matrix
 
         j check_done
+
+matrix_ab_64:
+        la a4,mat_a
+        li  a5,2
+        sb  a5,1(a4)
+
+        la      t0, mat_a
+        li      t1, 64
+        la      t2, mat_b
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        fence rw,rw
+        msyncregreset   sync1
+
+        mla     tr0, (t0), t1
+        mlb     tr1, (t2), t3
+        mzero   acc0
+        mmacc   acc0, tr1, tr0
+        msc     acc0, (t4), t5
+
+        li      a7,16384
+        add     t4, t4, a7
+        mla     tr1,(t0),t1
+        mlb     tr2,(t2),t3
+        mzero   acc1
+        mmacc   acc1, tr2, tr1
+        msc     acc1, (t4), t5
+
+        add     t4, t4, a7
+        mla     tr2,(t0),t1
+        mlb     tr3,(t2),t3
+        mzero   acc2
+        mmacc   acc2, tr3, tr2
+        msc     acc2, (t4), t5
+
+        add     t4, t4, a7
+        mla     tr3,(t0),t1
+        mlb     tr0,(t2),t3
+        mzero   acc3
+        mmacc   acc3, tr0, tr3
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
+        li      a0, 1
+        macquire        sync1, a0
+        fence iorw,iorw
+
+        li      a0,0
+        la      a1, mat_dist
+        li      a5,4
+check_ab_big_64:
+        li      a2,130
+        li      a3,64
+check_ab_1_64:
+        lw      a4,0(a1)
+        bne     a4,a2,check_fail
+        addi    a1,a1,4
+        addi    a3,a3,-1
+        bnez    a3,check_ab_1_64
+        li      a2,128
+        li      a3,4032
+check_ab_2_64:
+        lw      a4,0(a1)
+        bne     a4,a2,check_fail
+        addi    a1,a1,4
+        addi    a3,a3,-1
+        bnez    a3,check_ab_2_64
+
+        addi    a5,a5,-1
+        bnez    a5,check_ab_big_64
+        j       check_done
+
+matrix_atb_64:
+        fence iorw,iorw
+        la      a4,mat_a
+        li      a5,2
+        sb      a5,128(a4)
+
+        la      t0, mat_a
+        li      t1, 64
+        la      t2, mat_b
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        fence iorw,iorw
+        msyncregreset   sync1
+
+        mlat    tr0, (t0), t1
+        mlb     tr1, (t2), t3
+        mzero   acc0
+        mmacc   acc0, tr1, tr0
+        msc     acc0, (t4), t5
+
+        li      a7,16384
+        add     t4, t4, a7
+        mlat    tr1,(t0),t1
+        mlb     tr2,(t2),t3
+        mzero   acc1
+        mmacc   acc1, tr2, tr1
+        msc     acc1, (t4), t5
+
+        add     t4, t4, a7
+        mlat    tr2,(t0),t1
+        mlb     tr3,(t2),t3
+        mzero   acc2
+        mmacc   acc2, tr3, tr2
+        msc     acc2, (t4), t5
+
+        add     t4, t4, a7
+        mlat    tr3,(t0),t1
+        mlb     tr0,(t2),t3
+        mzero   acc3
+        mmacc   acc3, tr0, tr3
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
+        li      a0, 1
+        macquire        sync1, a0
+        fence iorw,iorw
+
+        li      a0,0
+        la      a1, mat_dist
+        li      a5,4
+check_atb_big_64:
+        li      a2,130
+        li      a3,64
+check_atb_1_64:
+        lw      a4,0(a1)
+        bne     a4,a2,check_fail
+        addi    a1,a1,4
+        addi    a3,a3,-1
+        bnez    a3,check_atb_1_64
+        li      a2,128
+        li      a3,4032
+check_atb_2_64:
+        lw      a4,0(a1)
+        bne     a4,a2,check_fail
+        addi    a1,a1,4
+        addi    a3,a3,-1
+        bnez    a3,check_atb_2_64
+
+        addi    a5,a5,-1
+        bnez    a5,check_atb_big_64
+        j       check_done
+
+matrix_abt_64:
+        fence iorw,iorw
+        la      a4,mat_b
+        li      a5, 1
+        sb      a5, 64(a4)
+
+        la      t0, mat_a
+        li      t1, 64
+        la      t2, mat_b
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        fence iorw,iorw
+        msyncregreset   sync1
+
+        mla     tr0, (t0), t1
+        mlbt    tr1, (t2), t3
+        mzero   acc0
+        mmacc   acc0, tr1, tr0
+        msc     acc0, (t4), t5
+
+        li      a7,16384
+        add     t4, t4, a7
+        mla     tr1,(t0),t1
+        mlbt    tr2,(t2),t3
+        mzero   acc1
+        mmacc   acc1, tr2, tr1
+        msc     acc1, (t4), t5
+
+        add     t4, t4, a7
+        mla     tr2,(t0),t1
+        mlbt    tr3,(t2),t3
+        mzero   acc2
+        mmacc   acc2, tr3, tr2
+        msc     acc2, (t4), t5
+
+        add     t4, t4, a7
+        mla     tr3,(t0),t1
+        mlbt    tr0,(t2),t3
+        mzero   acc3
+        mmacc   acc3, tr0, tr3
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
+        li      a0, 1
+        macquire        sync1, a0
+        fence iorw,iorw
+
+        li      a0,0
+        la      a1, mat_dist
+        li      a7,4
+check_abt_big_64:
+        li      a2,127
+        li      a3,128
+        li      a6,64
+check_abt_1_64:
+        lw      a4,0(a1)
+        bne     a4,a2,check_fail
+
+        li      a5,63
+        addi    a1,a1,4
+check_abt_2_64:
+        lw      a4,0(a1)
+        addi    a1,a1,4
+        addi    a5,a5,-1
+        bne     a4,a3,check_fail
+        bnez    a5,check_abt_2_64
+
+        addi    a6,a6,-1
+        bnez    a6,check_abt_1_64
+        addi    a7,a7,-1
+        bnez    a7,check_abt_big_64
+        j       check_done
+
+matrix_atbt_64:
+        fence iorw,iorw
+        la      a4,mat_b
+        li      a5, 1
+        sb      a5, 64(a4)
+        la      a4,mat_a
+        li      a5,2
+        sb      a5,64(a4)
+
+        la      t0, mat_a
+        li      t1, 64
+        la      t2, mat_b
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        fence iorw,iorw
+        msyncregreset   sync1
+
+        mlat    tr0, (t0), t1
+        mlbt    tr1, (t2), t3
+        mzero   acc0
+        mmacc   acc0, tr1, tr0
+        msc     acc0, (t4), t5
+
+        li      a7,16384
+        add     t4, t4, a7
+        mlat    tr1,(t0),t1
+        mlbt    tr2,(t2),t3
+        mzero   acc1
+        mmacc   acc1, tr2, tr1
+        msc     acc1, (t4), t5
+
+        add     t4, t4, a7
+        mlat    tr2,(t0),t1
+        mlbt    tr3,(t2),t3
+        mzero   acc2
+        mmacc   acc2, tr3, tr2
+        msc     acc2, (t4), t5
+
+        add     t4, t4, a7
+        mlat    tr3,(t0),t1
+        mlbt    tr0,(t2),t3
+        mzero   acc3
+        mmacc   acc3, tr0, tr3
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
+        li      a0, 1
+        macquire        sync1, a0
+        fence iorw,iorw
+
+        li      a0,0
+        la      a1, mat_dist
+        li      a7,4
+check_atbt_big_64:
+        li      a2,128
+        li      a3,130
+
+        lw      a4,0(a1)
+        bne     a4,a2,check_fail
+        addi    a1,a1,4
+        li      a5,63
+check_atbt_1_64:
+        lw      a4,0(a1)
+        bne     a4,a3,check_fail
+        addi    a1,a1,4
+        addi    a5,a5,-1
+        bnez    a5,check_atbt_1_64
+
+        li      a2,127
+        li      a3,128
+        li      a6,63
+check_atbt_2_64:
+        lw      a4,0(a1)
+        bne     a4,a2,check_fail
+        li      a5,63
+        addi    a1,a1,4
+check_atbt_3_64:
+        lw      a4,0(a1)
+        addi    a1,a1,4
+        addi    a5,a5,-1
+        bne     a4,a3,check_fail
+        bnez    a5,check_atbt_3_64
+
+        addi    a6,a6,-1
+        bnez    a6,check_atbt_2_64
+        addi    a7,a7,-1
+        bnez    a7,check_atbt_big_64
+        j       check_done
 
 
 check_fail:

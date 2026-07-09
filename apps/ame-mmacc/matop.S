@@ -5,12 +5,18 @@
 // msetcfg before use.
 
 .text
-.global matrix_init
-.global matrix_mmacc0
-.global matrix_mmacc1
-.global matrix_mmacc2
-.global matrix_mmacc3
-.global matrix_mmacc4
+.global matrix_init_128
+.global matrix_init_64
+.global matrix_mmacc0_128
+.global matrix_mmacc0_64
+.global matrix_mmacc1_128
+.global matrix_mmacc1_64
+.global matrix_mmacc2_128
+.global matrix_mmacc2_64
+.global matrix_mmacc3_128
+.global matrix_mmacc3_64
+.global matrix_mmacc4_128
+.global matrix_mmacc4_64
 .global matrix_restore
 .global mat_dist
 
@@ -57,14 +63,14 @@ restore_flag:
         fence   rw, rw
         ret
 
-matrix_init:
+matrix_init_128:
         // Enable matrix context (mstatus.MS=01) plus FS and VS for safety.
         // bit 25 = MS[0], bit 13 = FS[0], bit 9 = VS[0]
         lui     a0, 8194
         addiw   a0, a0, 512
         csrs    mstatus, a0
 
-        // Tile shape: 128 x 64 x 128.
+        // Tile shape: 128 x 64 -> 128.
         li      a0, 128
         msettilem       a0
         msettilen       a0
@@ -76,9 +82,24 @@ matrix_init:
         msettileki      64
         ret
 
+matrix_init_64:
+        lui     a0, 8194
+        addiw   a0, a0, 512
+        csrs    mstatus, a0
+
+        li      a0, 64
+        msettilem       a0
+        msettilen       a0
+        msettilek       a0
+
+        msettilemi      64
+        msettileni      64
+        msettileki      64
+        ret
+
 // ---------------------------------------------------------------------------
 // Helper macro: program type_code into mcfgN via a scratch GPR.
-//   cfg_imm uses msetcfg <mcfgN>, rs1 — the destination is the 3-bit selector
+//   cfg_imm uses msetcfg <mcfgN>, rs1 - the destination is the 3-bit selector
 //   (0..7) reusing tr0..acc3 numbering.
 // ---------------------------------------------------------------------------
 .macro SETCFG mcfg_sel, type_code
@@ -88,23 +109,22 @@ matrix_init:
 
 // ---------------------------------------------------------------------------
 // matrix_mmacc0 .. matrix_mmacc3 exercise the four sign combinations of the
-// 8-bit -> 32-bit multiply-accumulate, each writing into a different acc tile
-// region of mat_dist. The expected results match the original Xuantie test:
+// 8-bit -> 32-bit multiply-accumulate. The arithmetic expectation is unchanged
+// in 64-mode because K remains 64; only the logical C-tile footprint shrinks.
 //   signed   signed   : (-1) * (-2) * 64 + 3 = 131
 //   unsigned unsigned : 0xff * 0xfe * 64 + 3 = 4145283
 //   signed   unsigned : (-1) * 0xfe * 64 + 3 = -16253
 //   unsigned signed   : 0xff * (-2) * 64 + 3 = -32637
 // ---------------------------------------------------------------------------
 
-// Common epilogue: release/acquire then jump to matrix_check.
-.macro FINISH_AND_CHECK
+.macro FINISH_AND_CHECK target
         mrelease        sync1
         li              a0, 1
         macquire        sync1, a0
-        j               matrix_check
+        j               \target
 .endm
 
-matrix_mmacc0:
+matrix_mmacc0_128:
         la      t0, mat_na
         li      t1, 64
         la      t2, mat_nb
@@ -114,21 +134,18 @@ matrix_mmacc0:
 
         msyncregreset   sync1
 
-        // Op 1: acc0 = tr0(s8) * tr1(s8)
-        SETCFG  mcfg0, MCFG_INT8       // tr0 = int8
-        SETCFG  mcfg1, MCFG_INT8       // tr1 = int8
-        SETCFG  mcfg4, MCFG_INT32      // acc0 = int32
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg4, MCFG_INT32
         mla     tr0, (t0), t1
         mlb     tr1, (t2), t3
         mlc     acc0, (t4), t5
-        // mmacc md, ms2, ms1   semantics: md += ms1 * ms2
         mmacc   acc0, tr1, tr0
         msc     acc0, (t4), t5
 
-        // Op 2: acc1 = tr1(u8) * tr2(u8)
         li      a7, 65536
         add     t4, t4, a7
-        SETCFG  mcfg1, MCFG_UINT8      // override tr1 sign
+        SETCFG  mcfg1, MCFG_UINT8
         SETCFG  mcfg2, MCFG_UINT8
         SETCFG  mcfg5, MCFG_INT32
         mla     tr1, (t0), t1
@@ -137,10 +154,9 @@ matrix_mmacc0:
         mmacc   acc1, tr2, tr1
         msc     acc1, (t4), t5
 
-        // Op 3: acc2 = tr2(s8) * tr3(u8)
         add     t4, t4, a7
-        SETCFG  mcfg2, MCFG_INT8       // tr2 signed
-        SETCFG  mcfg3, MCFG_UINT8      // tr3 unsigned
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_UINT8
         SETCFG  mcfg6, MCFG_INT32
         mla     tr2, (t0), t1
         mlb     tr3, (t2), t3
@@ -148,7 +164,6 @@ matrix_mmacc0:
         mmacc   acc2, tr3, tr2
         msc     acc2, (t4), t5
 
-        // Op 4: acc3 = tr3(u8) * tr0(s8)
         add     t4, t4, a7
         SETCFG  mcfg3, MCFG_UINT8
         SETCFG  mcfg0, MCFG_INT8
@@ -159,9 +174,9 @@ matrix_mmacc0:
         mmacc   acc3, tr0, tr3
         msc     acc3, (t4), t5
 
-        FINISH_AND_CHECK
+        FINISH_AND_CHECK matrix_check_128
 
-matrix_mmacc1:
+matrix_mmacc1_128:
         la      t0, mat_na
         li      t1, 64
         la      t2, mat_nb
@@ -171,7 +186,6 @@ matrix_mmacc1:
 
         msyncregreset   sync1
 
-        // Op 1: acc1 = tr0(s8) * tr1(s8)
         SETCFG  mcfg0, MCFG_INT8
         SETCFG  mcfg1, MCFG_INT8
         SETCFG  mcfg5, MCFG_INT32
@@ -181,7 +195,6 @@ matrix_mmacc1:
         mmacc   acc1, tr1, tr0
         msc     acc1, (t4), t5
 
-        // Op 2: acc2 = tr1(u8) * tr2(u8)
         li      a7, 65536
         add     t4, t4, a7
         SETCFG  mcfg1, MCFG_UINT8
@@ -193,7 +206,6 @@ matrix_mmacc1:
         mmacc   acc2, tr2, tr1
         msc     acc2, (t4), t5
 
-        // Op 3: acc3 = tr2(s8) * tr3(u8)
         add     t4, t4, a7
         SETCFG  mcfg2, MCFG_INT8
         SETCFG  mcfg3, MCFG_UINT8
@@ -204,7 +216,6 @@ matrix_mmacc1:
         mmacc   acc3, tr3, tr2
         msc     acc3, (t4), t5
 
-        // Op 4: acc0 = tr3(u8) * tr0(s8)
         add     t4, t4, a7
         SETCFG  mcfg3, MCFG_UINT8
         SETCFG  mcfg0, MCFG_INT8
@@ -215,9 +226,9 @@ matrix_mmacc1:
         mmacc   acc0, tr0, tr3
         msc     acc0, (t4), t5
 
-        FINISH_AND_CHECK
+        FINISH_AND_CHECK matrix_check_128
 
-matrix_mmacc2:
+matrix_mmacc2_128:
         la      t0, mat_na
         li      t1, 64
         la      t2, mat_nb
@@ -267,9 +278,9 @@ matrix_mmacc2:
         mmacc   acc1, tr0, tr3
         msc     acc1, (t4), t5
 
-        FINISH_AND_CHECK
+        FINISH_AND_CHECK matrix_check_128
 
-matrix_mmacc3:
+matrix_mmacc3_128:
         la      t0, mat_na
         li      t1, 64
         la      t2, mat_nb
@@ -319,11 +330,9 @@ matrix_mmacc3:
         mmacc   acc2, tr0, tr3
         msc     acc2, (t4), t5
 
-        FINISH_AND_CHECK
+        FINISH_AND_CHECK matrix_check_128
 
-// matrix_mmacc4: doubled accumulate in a single tile region.
-// Expected: (-1)*(-2)*64*2 + 3 = 259, mirroring the original test.
-matrix_mmacc4:
+matrix_mmacc4_128:
         la      t0, mat_na
         li      t1, 64
         la      t2, mat_nb
@@ -352,53 +361,340 @@ matrix_mmacc4:
         li      a2, 259
         li      a3, 16384
         li      a0, 0
-check_loop4:
+check_loop4_128:
         lw      a4, 0(a1)
         bne     a4, a2, check_fail
         addi    a1, a1, 4
         addi    a3, a3, -1
-        bnez    a3, check_loop4
+        bnez    a3, check_loop4_128
         j       check_done
 
-matrix_check:
+matrix_mmacc0_64:
+        la      t0, mat_na
+        li      t1, 64
+        la      t2, mat_nb
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        msyncregreset   sync1
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg4, MCFG_INT32
+        mla     tr0, (t0), t1
+        mlb     tr1, (t2), t3
+        mlc     acc0, (t4), t5
+        mmacc   acc0, tr1, tr0
+        msc     acc0, (t4), t5
+
+        li      a7, 16384
+        add     t4, t4, a7
+        SETCFG  mcfg1, MCFG_UINT8
+        SETCFG  mcfg2, MCFG_UINT8
+        SETCFG  mcfg5, MCFG_INT32
+        mla     tr1, (t0), t1
+        mlb     tr2, (t2), t3
+        mlc     acc1, (t4), t5
+        mmacc   acc1, tr2, tr1
+        msc     acc1, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg6, MCFG_INT32
+        mla     tr2, (t0), t1
+        mlb     tr3, (t2), t3
+        mlc     acc2, (t4), t5
+        mmacc   acc2, tr3, tr2
+        msc     acc2, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg7, MCFG_INT32
+        mla     tr3, (t0), t1
+        mlb     tr0, (t2), t3
+        mlc     acc3, (t4), t5
+        mmacc   acc3, tr0, tr3
+        msc     acc3, (t4), t5
+
+        FINISH_AND_CHECK matrix_check_64
+
+matrix_mmacc1_64:
+        la      t0, mat_na
+        li      t1, 64
+        la      t2, mat_nb
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        msyncregreset   sync1
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg5, MCFG_INT32
+        mla     tr0, (t0), t1
+        mlb     tr1, (t2), t3
+        mlc     acc1, (t4), t5
+        mmacc   acc1, tr1, tr0
+        msc     acc1, (t4), t5
+
+        li      a7, 16384
+        add     t4, t4, a7
+        SETCFG  mcfg1, MCFG_UINT8
+        SETCFG  mcfg2, MCFG_UINT8
+        SETCFG  mcfg6, MCFG_INT32
+        mla     tr1, (t0), t1
+        mlb     tr2, (t2), t3
+        mlc     acc2, (t4), t5
+        mmacc   acc2, tr2, tr1
+        msc     acc2, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg7, MCFG_INT32
+        mla     tr2, (t0), t1
+        mlb     tr3, (t2), t3
+        mlc     acc3, (t4), t5
+        mmacc   acc3, tr3, tr2
+        msc     acc3, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg4, MCFG_INT32
+        mla     tr3, (t0), t1
+        mlb     tr0, (t2), t3
+        mlc     acc0, (t4), t5
+        mmacc   acc0, tr0, tr3
+        msc     acc0, (t4), t5
+
+        FINISH_AND_CHECK matrix_check_64
+
+matrix_mmacc2_64:
+        la      t0, mat_na
+        li      t1, 64
+        la      t2, mat_nb
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        msyncregreset   sync1
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg6, MCFG_INT32
+        mla     tr0, (t0), t1
+        mlb     tr1, (t2), t3
+        mlc     acc2, (t4), t5
+        mmacc   acc2, tr1, tr0
+        msc     acc2, (t4), t5
+
+        li      a7, 16384
+        add     t4, t4, a7
+        SETCFG  mcfg1, MCFG_UINT8
+        SETCFG  mcfg2, MCFG_UINT8
+        SETCFG  mcfg7, MCFG_INT32
+        mla     tr1, (t0), t1
+        mlb     tr2, (t2), t3
+        mlc     acc3, (t4), t5
+        mmacc   acc3, tr2, tr1
+        msc     acc3, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg4, MCFG_INT32
+        mla     tr2, (t0), t1
+        mlb     tr3, (t2), t3
+        mlc     acc0, (t4), t5
+        mmacc   acc0, tr3, tr2
+        msc     acc0, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg5, MCFG_INT32
+        mla     tr3, (t0), t1
+        mlb     tr0, (t2), t3
+        mlc     acc1, (t4), t5
+        mmacc   acc1, tr0, tr3
+        msc     acc1, (t4), t5
+
+        FINISH_AND_CHECK matrix_check_64
+
+matrix_mmacc3_64:
+        la      t0, mat_na
+        li      t1, 64
+        la      t2, mat_nb
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        msyncregreset   sync1
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg7, MCFG_INT32
+        mla     tr0, (t0), t1
+        mlb     tr1, (t2), t3
+        mlc     acc3, (t4), t5
+        mmacc   acc3, tr1, tr0
+        msc     acc3, (t4), t5
+
+        li      a7, 16384
+        add     t4, t4, a7
+        SETCFG  mcfg1, MCFG_UINT8
+        SETCFG  mcfg2, MCFG_UINT8
+        SETCFG  mcfg4, MCFG_INT32
+        mla     tr1, (t0), t1
+        mlb     tr2, (t2), t3
+        mlc     acc0, (t4), t5
+        mmacc   acc0, tr2, tr1
+        msc     acc0, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg5, MCFG_INT32
+        mla     tr2, (t0), t1
+        mlb     tr3, (t2), t3
+        mlc     acc1, (t4), t5
+        mmacc   acc1, tr3, tr2
+        msc     acc1, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg3, MCFG_UINT8
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg6, MCFG_INT32
+        mla     tr3, (t0), t1
+        mlb     tr0, (t2), t3
+        mlc     acc2, (t4), t5
+        mmacc   acc2, tr0, tr3
+        msc     acc2, (t4), t5
+
+        FINISH_AND_CHECK matrix_check_64
+
+matrix_mmacc4_64:
+        la      t0, mat_na
+        li      t1, 64
+        la      t2, mat_nb
+        li      t3, 64
+        la      t4, mat_dist
+        li      t5, 256
+
+        msyncregreset   sync1
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg4, MCFG_INT32
+        mla     tr0, (t0), t1
+        mlb     tr1, (t2), t3
+        mlc     acc0, (t4), t5
+        mmacc   acc0, tr1, tr0
+        mmacc   acc0, tr1, tr0
+        msc     acc0, (t4), t5
+
+        mrelease        sync1
+        li      a0, 1
+        macquire        sync1, a0
+        fence   rw, rw
+
+        la      a1, mat_dist
+        li      a2, 259
+        li      a3, 4096
+        li      a0, 0
+check_loop4_64:
+        lw      a4, 0(a1)
+        bne     a4, a2, check_fail
+        addi    a1, a1, 4
+        addi    a3, a3, -1
+        bnez    a3, check_loop4_64
+        j       check_done
+
+matrix_check_128:
         fence   rw, rw
         la      a1, mat_dist
         li      a2, 131
         li      a3, 16384
         li      a0, 0
-check_loop0:
+check_loop0_128:
         lw      a4, 0(a1)
         bne     a4, a2, check_fail
         addi    a1, a1, 4
         addi    a3, a3, -1
-        bnez    a3, check_loop0
+        bnez    a3, check_loop0_128
 
         li      a2, 4145283
         li      a3, 16384
-check_loop1:
+check_loop1_128:
         lw      a4, 0(a1)
         bne     a4, a2, check_fail
         addi    a1, a1, 4
         addi    a3, a3, -1
-        bnez    a3, check_loop1
+        bnez    a3, check_loop1_128
 
         li      a2, -16253
         li      a3, 16384
-check_loop2:
+check_loop2_128:
         lw      a4, 0(a1)
         bne     a4, a2, check_fail
         addi    a1, a1, 4
         addi    a3, a3, -1
-        bnez    a3, check_loop2
+        bnez    a3, check_loop2_128
 
         li      a2, -32637
         li      a3, 16384
-check_loop3:
+check_loop3_128:
         lw      a4, 0(a1)
         bne     a4, a2, check_fail
         addi    a1, a1, 4
         addi    a3, a3, -1
-        bnez    a3, check_loop3
+        bnez    a3, check_loop3_128
+
+        j       check_done
+
+matrix_check_64:
+        fence   rw, rw
+        la      a1, mat_dist
+        li      a2, 131
+        li      a3, 4096
+        li      a0, 0
+check_loop0_64:
+        lw      a4, 0(a1)
+        bne     a4, a2, check_fail
+        addi    a1, a1, 4
+        addi    a3, a3, -1
+        bnez    a3, check_loop0_64
+
+        li      a2, 4145283
+        li      a3, 4096
+check_loop1_64:
+        lw      a4, 0(a1)
+        bne     a4, a2, check_fail
+        addi    a1, a1, 4
+        addi    a3, a3, -1
+        bnez    a3, check_loop1_64
+
+        li      a2, -16253
+        li      a3, 4096
+check_loop2_64:
+        lw      a4, 0(a1)
+        bne     a4, a2, check_fail
+        addi    a1, a1, 4
+        addi    a3, a3, -1
+        bnez    a3, check_loop2_64
+
+        li      a2, -32637
+        li      a3, 4096
+check_loop3_64:
+        lw      a4, 0(a1)
+        bne     a4, a2, check_fail
+        addi    a1, a1, 4
+        addi    a3, a3, -1
+        bnez    a3, check_loop3_64
 
         j       check_done
 

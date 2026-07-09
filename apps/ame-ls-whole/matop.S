@@ -43,11 +43,13 @@
 // to prove the store still transfers the entire register.
 
 .text
-.global matrix_init
+.global matrix_init_128
+.global matrix_init_64
 .global matrix_whole_c
 .global matrix_whole_a
 .global matrix_whole_b
-.global matrix_whole_indep
+.global matrix_whole_indep_128
+.global matrix_whole_indep_64
 
 .global mat_src
 .global mat_dist
@@ -105,7 +107,7 @@ mat_dist:
         csrr    t2, CSR_TRLENB         // tile row bytes = trlenb
 .endm
 
-matrix_init:
+matrix_init_128:
         // Enable matrix context (mstatus.MS) plus FS/VS for safety.
         lui a0, 8194
         addiw a0, a0, 512
@@ -129,6 +131,29 @@ matrix_init:
         SETCFG  mcfg0, MCFG_INT8       // tr0  (A / B whole)
         SETCFG  mcfg1, MCFG_INT8       // tr1  (B whole)
         SETCFG  mcfg4, MCFG_INT32      // acc0 (C whole)
+
+        ret
+
+matrix_init_64:
+        // Enable matrix context (mstatus.MS) plus FS/VS for safety.
+        lui a0, 8194
+        addiw a0, a0, 512
+        csrs mstatus, a0
+
+        li a0, 64
+        msettilem       a0
+        msettilen       a0
+        msettilek       a0
+
+        msettilemi      64
+        msettileni      64
+        msettileki      64
+
+        fence iorw,iorw
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg4, MCFG_INT32
 
         ret
 
@@ -207,7 +232,7 @@ matrix_whole_b:
 // the tile settings and still writes the entire alenb-byte register image, so
 // the full compare must pass.
 // ---------------------------------------------------------------------------
-matrix_whole_indep:
+matrix_whole_indep_128:
         la      t0, mat_src
         la      t1, mat_dist
         ACC_STRIDE                     // t2 = acc row stride (from fixed size CSRs)
@@ -240,6 +265,39 @@ matrix_whole_indep:
 
         li      a0, 0
         csrr    a3, CSR_ALENB          // entire acc image must have been written
+        srli    a3, a3, 2
+        la      a1, mat_dist
+        la      a2, mat_src
+        j       cmp_loop
+
+matrix_whole_indep_64:
+        la      t0, mat_src
+        la      t1, mat_dist
+        ACC_STRIDE
+        fence iorw,iorw
+        msyncregreset   sync1
+        mlc.whole       acc0, (t0), t2
+
+        li      a0, 8
+        msettilem       a0
+        msettilen       a0
+        li      a0, 4
+        msettilek       a0
+
+        msc.whole       acc0, (t1), t2
+
+        li      a0, 64
+        msettilem       a0
+        msettilen       a0
+        msettilek       a0
+
+        mrelease        sync1
+        li      a0, 1
+        macquire        sync1, a0
+        fence iorw,iorw
+
+        li      a0, 0
+        csrr    a3, CSR_ALENB
         srli    a3, a3, 2
         la      a1, mat_dist
         la      a2, mat_src

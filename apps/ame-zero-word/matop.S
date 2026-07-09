@@ -5,9 +5,12 @@
 // All tile/acc registers must be programmed via msetcfg before load/mmacc.
 
 .text
-.global matrix_zero_verify
-.global matrix_zero_tr_verify
-.global matrix_init
+.global matrix_zero_verify_128
+.global matrix_zero_verify_64
+.global matrix_zero_tr_verify_128
+.global matrix_zero_tr_verify_64
+.global matrix_init_128
+.global matrix_init_64
 .global mat_dist
 
 .section .rodata
@@ -45,7 +48,7 @@ mat_dist:
         msetcfg \mcfg_sel, t6
 .endm
 
-matrix_init:
+matrix_init_128:
         lui a0, 8194
         addiw a0, a0, 512
         csrs mstatus, a0
@@ -61,7 +64,23 @@ matrix_init:
         msettileki     64
         ret
 
-matrix_zero_verify:
+matrix_init_64:
+        lui a0, 8194
+        addiw a0, a0, 512
+        csrs mstatus, a0
+
+        li a0, 4
+        msettilem       a0
+        msettilen       a0
+        li a0, 4
+        msettilek       a0
+
+        msettilemi      64
+        msettileni      64
+        msettileki      64
+        ret
+
+matrix_zero_verify_128:
 
         la      t4, mat_dist
         li      t5, 512
@@ -116,7 +135,57 @@ check_loop:
         bnez    a3, check_loop
         j check_done
 
-matrix_zero_tr_verify:
+matrix_zero_verify_64:
+
+        la      t4, mat_dist
+        li      t5, 256
+
+        msyncregreset   sync1
+
+        la      t4, mat_dist
+
+        SETCFG  mcfg4, MCFG_INT32
+        mlc     acc0, (t4), t5
+        mzero   acc0
+        msc     acc0, (t4), t5
+
+        li      a7,16384
+        add     t4, t4, a7
+        SETCFG  mcfg5, MCFG_INT32
+        mlc     acc1, (t4), t5
+        mzero   acc1
+        msc     acc1, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg6, MCFG_INT32
+        mlc     acc2, (t4), t5
+        mzero   acc2
+        msc     acc2, (t4), t5
+
+        add     t4, t4, a7
+        SETCFG  mcfg7, MCFG_INT32
+        mlc     acc3, (t4), t5
+        mzero   acc3
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
+        li      a0, 1
+        macquire        sync1, a0
+
+        fence iorw,iorw
+        li      a0,0
+        la      a1, mat_dist
+        li      a2,0
+        li      a3,16384
+check_loop_64:
+        lw      a4, 0(a1)
+        bne     a4, a2, check_fail
+        addi    a1, a1, 4
+        addi    a3, a3, -1
+        bnez    a3, check_loop_64
+        j       check_done
+
+matrix_zero_tr_verify_128:
         li a0,0
         la  a1,mat_dist
         li a2,0
@@ -210,6 +279,96 @@ check_tr_loop:
         addi    a3, a3, -1
         bnez    a3, check_tr_loop
         j check_done
+
+matrix_zero_tr_verify_64:
+        // Preserve the legacy TR(word) test structure from the 128-mode path:
+        // only the first 64 KiB quarter is pre-zeroed and checked. The later
+        // acc regions are still exercised, but they are not part of pass/fail.
+        li a0,0
+        la  a1,mat_dist
+        li a2,0
+        li a3,65536
+restore_flag_64:
+        sw a2,0(a1)
+        addi a1,a1,1
+        addi a3,a3,-1
+        bnez a3,restore_flag_64
+
+        la      t0, mat_a
+        li      t1, 64
+
+        la      t2, mat_b
+        li      t3, 64
+
+        la      t4, mat_dist
+        li      t5, 128
+        fence iorw,iorw
+
+        msyncregreset   sync1
+
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg4, MCFG_INT32
+
+        mla     tr0,(t0),t1
+        mlb     tr1,(t2),t3
+        mlc     acc0, (t4), t5
+        mzero   tr0
+        mmacc   acc0, tr1, tr0
+        fence iorw,iorw
+        msc     acc0, (t4), t5
+
+        li      a7,65536
+        add     t4, t4, a7
+        SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg5, MCFG_INT32
+        mla     tr1,(t0),t1
+        mlb     tr2,(t2),t3
+        mlc     acc1, (t4), t5
+        mzero   tr1
+        mmacc   acc1, tr2, tr1
+        msc     acc1, (t4), t5
+        fence iorw,iorw
+
+        add     t4, t4, a7
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_INT8
+        SETCFG  mcfg6, MCFG_INT32
+        mla     tr2,(t0),t1
+        mlb     tr3,(t2),t3
+        mlc     acc2, (t4), t5
+        mzero   tr2
+        mmacc   acc2, tr3, tr2
+        msc     acc2, (t4), t5
+        fence iorw,iorw
+        add     t4, t4, a7
+        SETCFG  mcfg3, MCFG_INT8
+        SETCFG  mcfg0, MCFG_INT8
+        SETCFG  mcfg7, MCFG_INT32
+        mla     tr3,(t0),t1
+        mlb     tr0,(t2),t3
+        mlc     acc3, (t4), t5
+        mzero   tr3
+        mmacc   acc3, tr0, tr3
+        msc     acc3, (t4), t5
+
+        mrelease        sync1
+        li a0, 1
+        macquire        sync1, a0
+        fence iorw,iorw
+
+        li      a0,0
+        la      a1, mat_dist
+        li      a2,0
+        li      a3,16384
+check_tr_loop_64:
+        lw      a4, 0(a1)
+        bne     a4, a2, check_fail
+        addi    a1, a1, 4
+        addi    a3, a3, -1
+        bnez    a3, check_tr_loop_64
+        j       check_done
 
 
 check_fail:

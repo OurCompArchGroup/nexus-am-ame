@@ -38,6 +38,16 @@ ls ./build/
 # Output: ame-mmacc-riscv64-xs.bin  ame-mmacc-riscv64-xs.txt  ame-mmacc-riscv64-xs.elf
 ```
 
+Some AME bare-metal tests also support a runtime-selectable `64` mode through
+AM `mainargs`. For those tests, build the `64` mode like this:
+
+```shell
+cd apps/ame-mmacc
+make ARCH=riscv64-xs TOOLCHAIN=LLVM mainargs=64
+```
+
+Use `mainargs=128` or omit `mainargs` to build the default `128` mode.
+
 ### Running AME Test Cases
 
 One can run the test cases using NEMU or XSAI.
