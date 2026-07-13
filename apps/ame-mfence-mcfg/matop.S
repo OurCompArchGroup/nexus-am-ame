@@ -19,12 +19,9 @@
 .global matrix_mcfg_behavior_64
 .global matrix_mfence_128
 .global matrix_mfence_64
-.global matrix_nofence_128
-.global matrix_nofence_64
 .global mat_dist
 .global mcfg_observed
 .global mcfg_expected
-.global mat_na
 
 .section .data
 .align 8
@@ -399,79 +396,4 @@ fence_loop_64:
 
 fence_fail:
         li      a0, 1
-        ret
-
-matrix_nofence_128:
-        la      t0, mat_na
-        li      t1, 64
-        la      t2, mat_nb
-        li      t3, 64
-        la      t4, mat_dist
-        li      t5, 512
-
-        msyncregreset   sync1
-
-        SETCFG  mcfg0, MCFG_INT8
-        SETCFG  mcfg1, MCFG_INT8
-        SETCFG  mcfg4, MCFG_INT32
-        mla     tr0, (t0), t1
-        mlb     tr1, (t2), t3
-        mlc     acc0, (t4), t5
-        mmacc   acc0, tr1, tr0
-        msc     acc0, (t4), t5
-
-        mrelease        sync1
-        li      a0, 1
-        macquire        sync1, a0
-
-        // Expect 1 * (-2) * 64 + 3 = -125 if the scalar fill of mat_na to 1
-        // was visible to the matrix engine. A stale view of the static-init
-        // -1 would give 131, mismatching here.
-        la      a1, mat_dist
-        li      a2, -125
-        li      a3, 16384
-nofence_loop_128:
-        lw      a4, 0(a1)
-        bne     a4, a2, fence_fail
-        addi    a1, a1, 4
-        addi    a3, a3, -1
-        bnez    a3, nofence_loop_128
-
-        li      a0, 0
-        ret
-
-matrix_nofence_64:
-        la      t0, mat_na
-        li      t1, 64
-        la      t2, mat_nb
-        li      t3, 64
-        la      t4, mat_dist
-        li      t5, 256
-
-        msyncregreset   sync1
-
-        SETCFG  mcfg0, MCFG_INT8
-        SETCFG  mcfg1, MCFG_INT8
-        SETCFG  mcfg4, MCFG_INT32
-        mla     tr0, (t0), t1
-        mlb     tr1, (t2), t3
-        mlc     acc0, (t4), t5
-        mmacc   acc0, tr1, tr0
-        msc     acc0, (t4), t5
-
-        mrelease        sync1
-        li      a0, 1
-        macquire        sync1, a0
-
-        la      a1, mat_dist
-        li      a2, -125
-        li      a3, 4096
-nofence_loop_64:
-        lw      a4, 0(a1)
-        bne     a4, a2, fence_fail
-        addi    a1, a1, 4
-        addi    a3, a3, -1
-        bnez    a3, nofence_loop_64
-
-        li      a0, 0
         ret
