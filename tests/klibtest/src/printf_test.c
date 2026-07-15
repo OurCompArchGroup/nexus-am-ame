@@ -74,6 +74,12 @@ static void test_s() {
   assert(ret == STRLEN(PRINTABLE_CH));
 }
 
+static void test_exp_zero() {
+  int ret = sprintf(buf, "%.2e %.2E", 0.0, 0.0);
+  check_buf("0.00e+00 0.00E+00");
+  assert(ret == STRLEN("0.00e+00 0.00E+00"));
+}
+
 #define INTEGER_TEST_DEF(name, conv, array, ref) \
   static void name() { sprintf(p_buf, TEST_FORMAT(conv, array)); check_buf(ref); }
 
@@ -149,6 +155,7 @@ static void test_full_format() {
 void printf_test() {
   test("conversion specifier %c", test_c);
   test("conversion specifier %s", test_s);
+  test("conversion specifier %e zero", test_exp_zero);
   test("conversion specifier %d", test_d);
   test("conversion specifier %u", test_u);
   test("conversion specifier %x", test_x);
