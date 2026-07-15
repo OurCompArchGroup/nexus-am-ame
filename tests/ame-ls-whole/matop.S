@@ -1,4 +1,4 @@
-// Zames v0.6.0 whole-register load/store test (ref: ame-ls-word).
+// Zames proposal-14 whole-register load/store test (ref: ame-ls-word).
 //
 // The whole-register variants are the same A/B/C load/store instructions with
 // the whole mode bit (func4[3]) set to 1; the assembly uses a .whole suffix:
@@ -10,21 +10,9 @@
 //   msb.whole ms3, (rs1)   # store whole B register (ms3 = tile reg tr0-tr3)
 //   msc.whole ms3, (rs1)   # store whole C register (ms3 = acc  reg acc0-acc3)
 //
-// This is the PROPOSAL-12 version. In proposal-12 the whole form keeps the rs2
-// operand ("mnem $md, (rs1), rs2") and does not state that it is unused, so rs2
-// is the inter-row byte stride, exactly as for the non-whole load/store. The
-// current toolchain matches this: LLVM (llvm-project-ame-new) encodes rs2 in all
-// six whole forms, and NEMU-matrix walks ROWNUM rows advancing each by rs2. To
-// transfer the full register as one contiguous image we therefore pass the
-// natural per-row byte width in rs2 (passing x0 would collapse every row onto
-// the base address, storing only one row).
-//
-// The per-row width is derived from the size CSRs so the test is config-agnostic:
-//   * tile row bytes = trlenb                         (CSR 0xcc2)
-//   * acc  row bytes = alenb / (tlenb / trlenb)       = alenb / ROWNUM
-//
-// (Proposal-14 later redefines whole accesses as stride-less contiguous images
-// with rs2 forced to x0; that variant is left for future work.)
+// Proposal 14 defines whole-register accesses as contiguous register images.
+// They have no stride operand and encode inst[24:20] (the normal rs2 field) as
+// zero. The implementation derives its internal row stride from TRLEN/ARLEN.
 //
 // Whole-register accesses otherwise:
 //   * copy the COMPLETE architectural register contents (raw state transfer,
@@ -83,28 +71,12 @@ mat_dist:
 
 // Whole-register byte-size CSRs.
 .equ CSR_TLENB,  0xcc1         // tile register size in bytes  (TLEN/8)
-.equ CSR_TRLENB, 0xcc2         // tile register row size       (TRLEN/8)
 .equ CSR_ALENB,  0xcc3         // acc  register size in bytes  (ALEN/8)
 
 // Helper macro: program type_code into mcfgN via scratch GPR t6.
 .macro SETCFG mcfg_sel, type_code
         li      t6, \type_code
         msetcfg \mcfg_sel, t6
-.endm
-
-// Compute the whole-register row stride (bytes) into t2.
-//   ACC_STRIDE -> alenb / (tlenb / trlenb)
-//   TILE_STRIDE -> trlenb
-.macro ACC_STRIDE
-        csrr    t3, CSR_TLENB
-        csrr    t4, CSR_TRLENB
-        divu    t5, t3, t4             // ROWNUM = tlenb / trlenb
-        csrr    t3, CSR_ALENB
-        divu    t2, t3, t5             // acc row bytes = alenb / ROWNUM
-.endm
-
-.macro TILE_STRIDE
-        csrr    t2, CSR_TRLENB         // tile row bytes = trlenb
 .endm
 
 matrix_init_128:
@@ -163,11 +135,10 @@ matrix_init_64:
 matrix_whole_c:
         la      t0, mat_src
         la      t1, mat_dist
-        ACC_STRIDE                     // t2 = acc row stride
         fence iorw,iorw
         msyncregreset   sync1
-        mlc.whole       acc0, (t0), t2 // load whole acc0  <- src
-        msc.whole       acc0, (t1), t2 // store whole acc0 -> dist
+        mlc.whole       acc0, (t0)     // load whole acc0  <- src
+        msc.whole       acc0, (t1)     // store whole acc0 -> dist
         mrelease        sync1
         li      a0, 1
         macquire        sync1, a0
@@ -186,11 +157,10 @@ matrix_whole_c:
 matrix_whole_a:
         la      t0, mat_src
         la      t1, mat_dist
-        TILE_STRIDE                    // t2 = tile row stride
         fence iorw,iorw
         msyncregreset   sync1
-        mla.whole       tr0, (t0), t2  // load whole tr0  <- src
-        msa.whole       tr0, (t1), t2  // store whole tr0 -> dist
+        mla.whole       tr0, (t0)      // load whole tr0  <- src
+        msa.whole       tr0, (t1)      // store whole tr0 -> dist
         mrelease        sync1
         li      a0, 1
         macquire        sync1, a0
@@ -209,11 +179,10 @@ matrix_whole_a:
 matrix_whole_b:
         la      t0, mat_src
         la      t1, mat_dist
-        TILE_STRIDE                    // t2 = tile row stride
         fence iorw,iorw
         msyncregreset   sync1
-        mlb.whole       tr1, (t0), t2  // load whole tr1  <- src
-        msb.whole       tr1, (t1), t2  // store whole tr1 -> dist
+        mlb.whole       tr1, (t0)      // load whole tr1  <- src
+        msb.whole       tr1, (t1)      // store whole tr1 -> dist
         mrelease        sync1
         li      a0, 1
         macquire        sync1, a0
@@ -235,21 +204,18 @@ matrix_whole_b:
 matrix_whole_indep_128:
         la      t0, mat_src
         la      t1, mat_dist
-        ACC_STRIDE                     // t2 = acc row stride (from fixed size CSRs)
         fence iorw,iorw
         msyncregreset   sync1
-        mlc.whole       acc0, (t0), t2 // load whole acc0 with full tiles
+        mlc.whole       acc0, (t0)     // load whole acc0 with full tiles
 
         // Shrink the active tile shape; whole store must not be affected. The
-        // stride in t2 comes from the fixed tlenb/trlenb/alenb CSRs, not mtile*,
-        // so it is unchanged by the shrink.
         li      a0, 8
         msettilem       a0
         msettilen       a0
         li      a0, 4
         msettilek       a0
 
-        msc.whole       acc0, (t1), t2 // whole store ignores tile shape
+        msc.whole       acc0, (t1)     // whole store ignores tile shape
 
         // Restore the full tile shape for any later use.
         li      a0, 128
@@ -273,10 +239,9 @@ matrix_whole_indep_128:
 matrix_whole_indep_64:
         la      t0, mat_src
         la      t1, mat_dist
-        ACC_STRIDE
         fence iorw,iorw
         msyncregreset   sync1
-        mlc.whole       acc0, (t0), t2
+        mlc.whole       acc0, (t0)
 
         li      a0, 8
         msettilem       a0
@@ -284,7 +249,7 @@ matrix_whole_indep_64:
         li      a0, 4
         msettilek       a0
 
-        msc.whole       acc0, (t1), t2
+        msc.whole       acc0, (t1)
 
         li      a0, 64
         msettilem       a0
