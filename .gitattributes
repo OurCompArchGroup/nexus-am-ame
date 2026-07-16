@@ -1,2 +1,0 @@
-apps/llama/llama-riscv64-xs.bin filter=lfs diff=lfs merge=lfs -text
-apps/llama/*.bin filter=lfs diff=lfs merge=lfs -text
