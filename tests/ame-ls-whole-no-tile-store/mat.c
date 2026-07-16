@@ -13,9 +13,9 @@
 //
 // The shared source/destination buffers must therefore cover the LARGER of the
 // two (the acc image); the tile tests only touch the first 8192 bytes.
-#define TILE_BYTES 8192             // whole tile register image
-#define ACC_BYTES  65536            // whole acc  register image
-#define BUF_BYTES  ACC_BYTES        // buffers sized to the largest whole reg
+#define TILE_BYTES 8192
+#define ACC_BYTES  65536
+#define BUF_BYTES  ACC_BYTES
 #define SENTINEL   0x5a
 
 void matrix_init_128(void);
@@ -88,8 +88,8 @@ int main(const char *args) {
   }
 
   run("Whole C (mlc.whole/msc.whole)", matrix_whole_c, ACC_BYTES);
-  run("Whole A (mla.whole/msa.whole)", matrix_whole_a, TILE_BYTES);
-  run("Whole B (mlb.whole/msb.whole)", matrix_whole_b, TILE_BYTES);
+  run("Whole A load (mla.whole)", matrix_whole_a, TILE_BYTES);
+  run("Whole B load (mlb.whole)", matrix_whole_b, TILE_BYTES);
   run("Whole tile-independent store",
       mode64 ? matrix_whole_indep_64 : matrix_whole_indep_128, ACC_BYTES);
 
