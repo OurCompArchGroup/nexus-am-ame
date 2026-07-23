@@ -355,14 +355,14 @@
 #include <klib-macros.h>
 #include <csr.h> // read csr for ipc
 
-#define Start_Timer() Begin_Time = uptime()
-#define Stop_Timer()  End_Time   = uptime()
+// #define Start_Timer() Begin_Time = uptime()
+// #define Stop_Timer()  End_Time   = uptime()
 
 
 #if defined(__ARCH_RISCV64_XS_SOUTHLAKE) || defined(__ARCH_RISCV64_XS_SOUTHLAKE_FLASH)
 #define NUMBER_OF_RUNS		1000 /* Default number of runs, reduced for fast test */
 #else
-#define NUMBER_OF_RUNS		500000 /* Default number of runs */
+#define NUMBER_OF_RUNS		5000 /* Default number of runs */
 #endif
 #define PASS2
 
@@ -447,9 +447,9 @@ Enumeration     Func_1 ();
 
 Boolean		Done;
 
-long            Begin_Time,
-                End_Time,
-                User_Time;
+// long            Begin_Time,
+                // End_Time,
+                // User_Time;
 float           Microseconds,
                 Dhrystones_Per_Second;
 
@@ -769,7 +769,7 @@ int main ()
   REG   int             Run_Index;
   REG   int             Number_Of_Runs;
 
-  _ioe_init();
+  // _ioe_init();
 
   Number_Of_Runs = NUMBER_OF_RUNS;
 
@@ -803,7 +803,7 @@ int main ()
     /* Start timer */
     /***************/
 
-    Start_Timer();
+    // Start_Timer();
     instrcnt = csr_read(CSR_MINSTRET);
     cycle = csr_read(CSR_MCYCLE);
 
@@ -857,9 +857,9 @@ int main ()
     /* Stop timer */
     /**************/
 
-    Stop_Timer();
+    // Stop_Timer();
 
-    User_Time = End_Time - Begin_Time;
+    // User_Time = End_Time - Begin_Time;
 
     Done = true;
   }
