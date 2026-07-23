@@ -19,23 +19,23 @@
 .section .data
 .align 8
 
-# A: 64 rows x 64 cols int8, row-major (K-inner). All elements = 1.
+# A: 256 rows x 128 cols int8, row-major (K-inner). All elements = 1.
 mat_na:
-        .rept   4096            # 64 * 64 = 4096
+        .rept   32768           # 256 * 128 = 32768
         .byte   1
         .endr
 
-# B: 64 rows x 64 cols int8, N-major / pre-transposed (K-inner).
+# B: 256 rows x 128 cols int8, N-major / pre-transposed (K-inner).
 # Same layout convention as ame-mmacc/mat_nb. All elements = 1.
 mat_nb:
-        .rept   4096            # 64 * 64 = 4096
+        .rept   32768           # 256 * 128 = 32768
         .byte   1
         .endr
 
-# C: 64 rows x 64 cols int32, row-major. Initialized to 0 so each
+# C: 256 rows x 256 cols int32, row-major. Initialized to 0 so each
 # output tile's accumulator (loaded via mlc) starts from zero.
 mat_dist:
-        .rept   4096            # 64 * 64 = 4096
+        .rept   65536           # 256 * 256 = 65536
         .word   0
         .endr
 
@@ -48,7 +48,7 @@ matrix_init_128:
         addiw a0, a0, 512
         csrs mstatus, a0
 
-        li a0, 64
+        li a0, 128
         msettilem       a0
         msettilen       a0
         li a0, 64
@@ -98,14 +98,18 @@ matrix_gemm_128:
         msyncregreset   sync1
 
         # Program mcfg for all tile/acc registers used.
-        # tr0-tr1 = int8 (mcfg0-1), acc0 = int32 (mcfg4)
         SETCFG  mcfg0, MCFG_INT8
         SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_INT8
         SETCFG  mcfg4, MCFG_INT32
+        SETCFG  mcfg5, MCFG_INT32
+        SETCFG  mcfg6, MCFG_INT32
+        SETCFG  mcfg7, MCFG_INT32
 
-        li      t1, 64                  # A row stride (K_total bytes)
-        li      t3, 64                  # B row stride (K_total bytes)
-        li      t5, 256                 # C row stride (N_total * 4 bytes)
+        li      t1, 128                 # A row stride (K_total bytes)
+        li      t3, 128                 # B row stride (K_total bytes)
+        li      t5, 1024                # C row stride (N_total * 4 bytes)
 
         # ---- A0 / A1 base pointers ----
         la      t0, mat_na              # A0 = A[0,0]
@@ -146,6 +150,7 @@ matrix_gemm_128:
         mmacc   acc3, tr3, tr1         # acc3 += A1 * B1
 
         # Advance all four operand pointers to the next K-tile.
+        li a7, 64
         add     t0, t0, a7
         add     a1, a1, a7
         add     t2, t2, a7
@@ -176,15 +181,21 @@ matrix_gemm_128:
 gemm_check:
         fence   rw, rw
         la      a1, mat_dist
-        li      a2, 64                  # expected: K_total * 1 * 1 = 64
-        li      a3, 4096                # 64 * 64 elements
+        li      a2, 128                 # expected: 2 K-tiles * 64 ones = 128
+        li      a3, 256                 # rows
         li      a0, 0
-gemm_loop:
-        lw      a4, 0(a1)
-        bne     a4, a2, gemm_fail
-        addi    a1, a1, 4
+gemm_row_loop:
+        mv      a4, a1
+        li      a5, 256                 # cols
+gemm_col_loop:
+        lw      a6, 0(a4)
+        bne     a6, a2, gemm_fail
+        addi    a4, a4, 4
+        addi    a5, a5, -1
+        bnez    a5, gemm_col_loop
+        addi    a1, a1, 1024            # next row in 256-col backing store
         addi    a3, a3, -1
-        bnez    a3, gemm_loop
+        bnez    a3, gemm_row_loop
         j       gemm_done
 
 gemm_fail:
