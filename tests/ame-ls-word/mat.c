@@ -54,12 +54,42 @@ static void report_first_mismatch(const char *name, int mode64, int transposed) 
 }
 
 int main(const char *args) {
-  int mode64 = (args && strcmp(args, "64") == 0);
+  enum {
+    CASE_LS = 1 << 0,
+    CASE_LTST = 1 << 1,
+    CASE_LTS = 1 << 2,
+    CASE_LST = 1 << 3,
+    CASE_ALL = CASE_LS | CASE_LTST | CASE_LTS | CASE_LST,
+  };
 
-  if (args && args[0] && !mode64 && strcmp(args, "128") != 0) {
-    printf("Unknown mainargs \"%s\"; expected {128, 64}\n", args);
-    return 1;
+  int mode64 = 0;
+  int cases = CASE_ALL;
+
+  if (args && args[0]) {
+    if (strcmp(args, "64") == 0) {
+      mode64 = 1;
+    } else if (strcmp(args, "128") == 0) {
+      mode64 = 0;
+    } else if (strcmp(args, "64-ls") == 0) {
+      mode64 = 1;
+      cases = CASE_LS;
+    } else if (strcmp(args, "64-ltst") == 0) {
+      mode64 = 1;
+      cases = CASE_LTST;
+    } else if (strcmp(args, "64-lts") == 0) {
+      mode64 = 1;
+      cases = CASE_LTS;
+    } else if (strcmp(args, "64-lst") == 0) {
+      mode64 = 1;
+      cases = CASE_LST;
+    } else {
+      printf("Unknown mainargs \"%s\"; expected {128, 64, 64-ls, "
+             "64-ltst, 64-lts, 64-lst}\n", args);
+      return 1;
+    }
   }
+
+  int failures = 0;
 
   if (mode64) {
     matrix_init_64();
@@ -69,33 +99,40 @@ int main(const char *args) {
     printf("Load/Store word mode=128\n");
   }
 
-  if ((mode64 ? matrix_ls_64() : matrix_ls_128()) == 0) {
+  if ((cases & CASE_LS) &&
+      (mode64 ? matrix_ls_64() : matrix_ls_128()) == 0) {
     printf("Load/Store Test passed!\n");
-  } else {
+  } else if (cases & CASE_LS) {
     printf("Load/Store Bad Test!!\n");
     report_first_mismatch("Load/Store", mode64, 0);
+    failures++;
   }
-  if ((mode64 ? matrix_ltst_64() : matrix_ltst_128()) == 0) {
+  if ((cases & CASE_LTST) &&
+      (mode64 ? matrix_ltst_64() : matrix_ltst_128()) == 0) {
     printf("LoadT/StoreT Test passed!\n");
-  } else {
+  } else if (cases & CASE_LTST) {
     printf("LoadT/StoreT Bad Test!!\n");
     report_first_mismatch("LoadT/StoreT", mode64, 0);
+    failures++;
   }
 
-  if ((mode64 ? matrix_lts_64() : matrix_lts_128()) == 0) {
+  if ((cases & CASE_LTS) &&
+      (mode64 ? matrix_lts_64() : matrix_lts_128()) == 0) {
     printf("LoadT/Store Test passed!\n");
-  } else {
+  } else if (cases & CASE_LTS) {
     printf("LoadT/Store Bad Test!!\n");
     report_first_mismatch("LoadT/Store", mode64, 1);
+    failures++;
   }
 
-
-  if ((mode64 ? matrix_lst_64() : matrix_lst_128()) == 0) {
+  if ((cases & CASE_LST) &&
+      (mode64 ? matrix_lst_64() : matrix_lst_128()) == 0) {
     printf("Load/StoreT Test passed!\n");
-  } else {
+  } else if (cases & CASE_LST) {
     printf("Load/StoreT Bad Test!!\n");
     report_first_mismatch("Load/StoreT", mode64, 1);
+    failures++;
   }
 
-  return 0;
+  return failures != 0;
 }
