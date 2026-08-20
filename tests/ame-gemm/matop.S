@@ -21,21 +21,21 @@
 
 # A: 64 rows x 64 cols int8, row-major (K-inner). All elements = 1.
 mat_na:
-        .rept   4096            # 64 * 64 = 4096
+        .rept   32768             # 64 * 64 = 4096
         .byte   1
         .endr
 
 # B: 64 rows x 64 cols int8, N-major / pre-transposed (K-inner).
 # Same layout convention as ame-mmacc/mat_nb. All elements = 1.
 mat_nb:
-        .rept   4096            # 64 * 64 = 4096
+        .rept   32768            # 64 * 64 = 4096
         .byte   1
         .endr
 
 # C: 64 rows x 64 cols int32, row-major. Initialized to 0 so each
 # output tile's accumulator (loaded via mlc) starts from zero.
 mat_dist:
-        .rept   4096            # 64 * 64 = 4096
+        .rept   65536            # 64 * 64 = 4096
         .word   0
         .endr
 
@@ -151,6 +151,7 @@ matrix_gemm_128:
         mmacc   acc3, tr3, tr1         # acc3 += A1 * B1
 
         # Advance all four operand pointers to the next K-tile.
+        li a7, 64
         add     t0, t0, a7
         add     a1, a1, a7
         add     t2, t2, a7
@@ -181,7 +182,7 @@ matrix_gemm_128:
 gemm_check:
         fence   rw, rw
         la      a1, mat_dist
-        li      a2, 64                  # expected: K_total * 1 * 1 = 64
+        li      a2, 128                  # expected: K_total * 1 * 1 = 64
         li      a3, 4096                # 64 * 64 elements
         li      a0, 0
 gemm_loop:
