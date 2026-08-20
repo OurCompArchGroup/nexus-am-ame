@@ -101,7 +101,12 @@ matrix_gemm_128:
         # tr0-tr1 = int8 (mcfg0-1), acc0 = int32 (mcfg4)
         SETCFG  mcfg0, MCFG_INT8
         SETCFG  mcfg1, MCFG_INT8
+        SETCFG  mcfg2, MCFG_INT8
+        SETCFG  mcfg3, MCFG_INT8
         SETCFG  mcfg4, MCFG_INT32
+        SETCFG  mcfg5, MCFG_INT32
+        SETCFG  mcfg6, MCFG_INT32
+        SETCFG  mcfg7, MCFG_INT32
 
         li      t1, 64                  # A row stride (K_total bytes)
         li      t3, 64                  # B row stride (K_total bytes)
