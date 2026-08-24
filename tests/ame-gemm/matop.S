@@ -182,8 +182,8 @@ matrix_gemm_128:
 gemm_check:
         fence   rw, rw
         la      a1, mat_dist
-        li      a2, 128                  # expected: K_total * 1 * 1 = 64
-        li      a3, 4096                # 64 * 64 elements
+        li      a2, 128                  # expected: two K-tiles, 64 + 64
+        li      a3, 4096                 # 64 * 64 elements in each output tile
         li      a0, 0
 gemm_loop:
         lw      a4, 0(a1)

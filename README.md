@@ -19,7 +19,7 @@ export AM_HOME=`pwd`  # set AM_HOME
 ### Building AME Test Cases
 
 ```shell
-cd apps/<test-case-name>
+cd tests/<test-case-name>
 make ARCH=riscv64-xs TOOLCHAIN=LLVM
 ```
 
@@ -32,7 +32,7 @@ After building, the following files will be generated in `./build/`:
 ### Example
 
 ```shell
-cd apps/ame-mmacc
+cd tests/ame-mmacc
 make ARCH=riscv64-xs TOOLCHAIN=LLVM
 ls ./build/
 # Output: ame-mmacc-riscv64-xs.bin  ame-mmacc-riscv64-xs.txt  ame-mmacc-riscv64-xs.elf
@@ -42,7 +42,7 @@ Some AME bare-metal tests also support a runtime-selectable `64` mode through
 AM `mainargs`. For those tests, build the `64` mode like this:
 
 ```shell
-cd apps/ame-mmacc
+cd tests/ame-mmacc
 make ARCH=riscv64-xs TOOLCHAIN=LLVM mainargs=64
 ```
 
@@ -64,22 +64,26 @@ For NEMU or XSAI setup, please refer to [xsai-env documentation](https://github.
 
 ### Available AME Test Cases
 
-Note that all `mfmacc` test cases are only tested on NEMU since floating-point matrix multiply is currently not available in XSAI. 
+FP8 matrix tests require an implementation that advertises the corresponding
+Zames `fp8e4m3/fp8e5m2 -> fp32` capability. Other tests should likewise be run
+against an implementation that supports the types they configure through
+`msetcfg`.
 
 | Test Case               | Description                                                    |
 | ----------------------- | -------------------------------------------------------------- |
-| `ame-ls_word`           | Matrix load/store operations with word-level (32-bit) elements |
-| `ame-ls-ab`             | Matrix load operations for A/B matrices with transpose support |
-| `ame-zero`              | Matrix accumulator zeroing operations (byte-level)             |
-| `ame-zero_word`         | Matrix accumulator zeroing operations (word-level)             |
-| `ame-mmacc`             | Integer matrix multiply-accumulate operations                  |
-| `ame-mfmacc_f32tof32`   | Floating-point matrix multiply-accumulate (FP32 to FP32)       |
-| `ame-mfmacc_f64tof64`   | Floating-point matrix multiply-accumulate (FP64 to FP64)       |
-| `ame-mfmacc_f16tof32`   | Floating-point matrix multiply-accumulate (FP16 to FP32)       |
-| `ame-mfmacc_f8e5tof32`  | Floating-point matrix multiply-accumulate (FP8 E5M2 to FP32)   |
-| `ame-mfmacc_f8e4tof32`  | Floating-point matrix multiply-accumulate (FP8 E4M3 to FP32)   |
-| `ame-mfmacc_f8e5tof16`  | Floating-point matrix multiply-accumulate (FP8 E5M2 to FP16)   |
-| `ame-mfmacc_f8e4tof16`  | Floating-point matrix multiply-accumulate (FP8 E4M3 to FP16)   |
+| `tests/ame-gemm`                    | Deterministic multi-tile integer GEMM                       |
+| `tests/ame-gemm-fuzz`               | Randomized integer GEMM with a scalar reference             |
+| `tests/ame-ls-word`                 | Matrix load/store with word-level (32-bit) elements         |
+| `tests/ame-ls-ab`                   | A/B matrix loads with transpose support                     |
+| `tests/ame-ls-whole`                | Proposal-14 whole-register load/store operations            |
+| `tests/ame-ls-whole-no-tile-store`  | Whole-register loads and C stores without tile stores       |
+| `tests/ame-zero-word`               | Matrix accumulator and tile zeroing operations              |
+| `tests/ame-mmacc`                   | Integer matrix multiply-accumulate operations               |
+| `tests/ame-mfence-mcfg`             | `msetcfg/mgetcfg` and Zmasync `mfence` behavior             |
+| `tests/ame-mmacc-fp8e4m3-fp32`      | FP8 E4M3 matrix multiply-accumulate into FP32               |
+| `tests/ame-mmacc-fp8e5m2-fp32`      | FP8 E5M2 matrix multiply-accumulate into FP32               |
+| `apps/ame-transpose-ab`             | Targeted A/B transpose-load precision probes               |
+| `apps/ame-gemm-blas`                | XSAI BLAS high-level GEMM integration                       |
 
 ---
 

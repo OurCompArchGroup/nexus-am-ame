@@ -1,4 +1,4 @@
-// Zames v0.6.0 port of ame-ls_word.
+// Zames proposal-14 accumulator load/store coverage.
 // mlc/msc   = load/store accumulator (non-transposed)
 // mlct/msct = load/store accumulator (transposed)
 // All acc registers must be programmed via msetcfg before first use.

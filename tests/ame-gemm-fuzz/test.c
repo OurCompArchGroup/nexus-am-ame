@@ -86,7 +86,7 @@ int main() {
   int failures = 0;
 
   ame_init();
-  printf("AME proposal-12 GEMM fuzz test: C(128x128)=A(128x64)*B^T(128x64)\n");
+  printf("AME proposal-14 GEMM fuzz test: C(128x128)=A(128x64)*B^T(128x64)\n");
 
   for (int t = 0; t < num_tests; t++) {
     fill_case(t);
@@ -103,7 +103,7 @@ int main() {
   }
 
   if (failures == 0) {
-    printf("All %d AME proposal-12 GEMM tests PASSED.\n", num_tests);
+    printf("All %d AME proposal-14 GEMM tests PASSED.\n", num_tests);
   }
 
   return failures == 0 ? 0 : 1;

@@ -1,9 +1,9 @@
 ---
 name: xuantie-to-zames
-description: Migrate RISC-V matrix-extension assembly from the Xuantie 0.6 dialect (e.g. mlae8, mmacc.w.b, msyncreset, llvm-mc -mattr=+zame,+matrix-xuantie-0.6) to the Zames v0.6.0 spec (mla/mlb/mlc, single mmacc, msetcfg/mcfg, msyncregreset sync0..sync15, -march=...zames_zmasync via clang). Use when porting test apps under nexus-am/apps/ame-* or when an old-dialect file fails to assemble with the current toolchain.
+description: Migrate RISC-V matrix-extension assembly from the Xuantie 0.6 dialect (e.g. mlae8, mmacc.w.b, msyncreset, llvm-mc -mattr=+zame,+matrix-xuantie-0.6) to the Zames proposal-14 form (mla/mlb/mlc, single mmacc, msetcfg/mcfg, msyncregreset sync0..sync15, -march=...zames_zmasync via clang). Use when porting matrix tests under nexus-am/apps or nexus-am/tests, or when an old-dialect file fails to assemble with the current toolchain.
 ---
 
-# Xuantie 0.6 → Zames v0.6.0 migration
+# Xuantie 0.6 → Zames proposal-14 migration
 
 The Zames spec drops type encoding from instruction mnemonics. Element width and
 signedness are programmed once into `mcfgN` configuration registers and shared
