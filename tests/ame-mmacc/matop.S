@@ -1,8 +1,5 @@
-// Zames v0.6.0 port of ame-mmacc. The original used the Xuantie 0.6 dialect
-// where element width and signedness were encoded in the mnemonic
-// (e.g. mlae8 / mmacc.w.b / mmaccu.w.b). Under Zames the mnemonics carry no
-// width or signedness and every tile/accumulator must be programmed through
-// msetcfg before use.
+// Zames proposal-14 integer matrix multiply-accumulate coverage.
+// Element width and signedness are selected through msetcfg before use.
 
 .text
 .global matrix_init_128

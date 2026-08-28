@@ -1,4 +1,4 @@
-// Zames v0.6.0 port of ame-zero_word.
+// Zames proposal-14 word-level zeroing coverage.
 // matrix_zero_verify:     load acc, zero it, store it -> expect all-zero output
 // matrix_zero_tr_verify:  load tr (zeroed), mmacc against loaded B -> expect all-zero output
 // mzero = zero a tile or accumulator register (no mcfg needed for zero itself)
@@ -218,8 +218,6 @@ restore_flag:
         mlc     acc0, (t4), t5
         mzero   tr0
         // mmacc md, ms2, ms1 -> md += ms1 * ms2
-        // Xuantie: mmacc.w.b acc0, tr0, tr1 -> acc0 += tr0 * tr1
-        // Zames:   mmacc acc0, tr1, tr0
         mmacc   acc0, tr1, tr0
         fence iorw,iorw
         msc     acc0, (t4), t5

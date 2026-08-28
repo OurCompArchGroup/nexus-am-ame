@@ -1,4 +1,4 @@
-// Zames v0.6.0 port of ame-ls-ab.
+// Zames proposal-14 load/store coverage for A/B tiles.
 // mla/mlat = load A tile (normal / transposed)
 // mlb/mlbt = load B tile (normal / transposed)
 // mlc/msc  = load/store accumulator
@@ -156,9 +156,7 @@ matrix_ab_128:
         mla     tr0, (t0), t1
         mlb     tr1, (t2), t3
         mzero   acc0
-        // mmacc md, ms2, ms1  -> md += ms1 * ms2
-        // Xuantie: mmacc.w.b acc0, tr0, tr1  -> acc0 += tr0 * tr1
-        // Zames:   mmacc acc0, tr1, tr0
+        // mmacc md, ms2, ms1 -> md += ms1 * ms2
         mmacc   acc0, tr1, tr0
         msc     acc0, (t4), t5
 
