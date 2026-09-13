@@ -73,6 +73,8 @@ against an implementation that supports the types they configure through
 | ----------------------- | -------------------------------------------------------------- |
 | `tests/ame-gemm`                    | Deterministic multi-tile integer GEMM                       |
 | `tests/ame-gemm-fuzz`               | Randomized integer GEMM with a scalar reference             |
+| [`tests/ame-gemm-i8i2-i32`](tests/ame-gemm-i8i2-i32/README.md) | Configurable full-tile i8 × packed i2 → i32 GEMM; BitVLA output-stationary schedule |
+| [`tests/ame-gemm-bf16-fp32`](tests/ame-gemm-bf16-fp32/README.md) | Configurable full-tile BF16 × BF16 → FP32 GEMM; attention output-stationary schedule |
 | `tests/ame-ls-word`                 | Matrix load/store with word-level (32-bit) elements         |
 | `tests/ame-ls-ab`                   | A/B matrix loads with transpose support                     |
 | `tests/ame-ls-whole`                | Proposal-14 whole-register load/store operations            |
