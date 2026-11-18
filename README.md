@@ -54,22 +54,16 @@ For NEMU or XSAI setup, please refer to [xsai-env documentation](https://github.
 
 ### Available AME Test Cases
 
-Note that all `mfmacc` test cases are only tested on NEMU since floating-point matrix multiply is currently not available in XSAI. 
-
 | Test Case               | Description                                                    |
 | ----------------------- | -------------------------------------------------------------- |
-| `ame-ls_word`           | Matrix load/store operations with word-level (32-bit) elements |
+| `ame-ls-word`           | Matrix load/store operations with word-level (32-bit) elements |
 | `ame-ls-ab`             | Matrix load operations for A/B matrices with transpose support |
-| `ame-zero`              | Matrix accumulator zeroing operations (byte-level)             |
-| `ame-zero_word`         | Matrix accumulator zeroing operations (word-level)             |
+| `ame-ls-whole`          | Whole-register matrix loads and stores                         |
+| `ame-zero-word`         | Matrix accumulator zeroing operations (word-level)             |
 | `ame-mmacc`             | Integer matrix multiply-accumulate operations                  |
-| `ame-mfmacc_f32tof32`   | Floating-point matrix multiply-accumulate (FP32 to FP32)       |
-| `ame-mfmacc_f64tof64`   | Floating-point matrix multiply-accumulate (FP64 to FP64)       |
-| `ame-mfmacc_f16tof32`   | Floating-point matrix multiply-accumulate (FP16 to FP32)       |
-| `ame-mfmacc_f8e5tof32`  | Floating-point matrix multiply-accumulate (FP8 E5M2 to FP32)   |
-| `ame-mfmacc_f8e4tof32`  | Floating-point matrix multiply-accumulate (FP8 E4M3 to FP32)   |
-| `ame-mfmacc_f8e5tof16`  | Floating-point matrix multiply-accumulate (FP8 E5M2 to FP16)   |
-| `ame-mfmacc_f8e4tof16`  | Floating-point matrix multiply-accumulate (FP8 E4M3 to FP16)   |
+| `ame-gemm`              | Matrix GEMM with a numerical self-check                        |
+| `ame-mfence-mcfg`       | Matrix fence and configuration register checks                 |
+| `ame-bf16`              | Scalar and vector BF16 operations                              |
 
 ---
 
