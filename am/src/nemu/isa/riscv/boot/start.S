@@ -35,6 +35,13 @@ _start:
   li a0, MSTATUS_FS & (MSTATUS_FS >> 1)
   csrs mstatus, a0
   csrwi fcsr, 0
+#ifdef __riscv_vector
+  // Runtime/library code compiled for V may vectorize before main.
+  li a0, 0x200
+  csrs mstatus, a0
+  csrwi vstart, 0
+  csrwi vcsr, 0
+#endif
 
   init_fregs # init fregs after fp enable
 
