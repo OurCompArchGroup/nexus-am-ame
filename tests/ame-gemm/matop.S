@@ -9,7 +9,9 @@
 .global matrix_gemm_mxcase
 .global matrix_test_xmfrm
 .global matrix_test_mxlife
+.global matrix_test_mxsemantics
 .global matrix_test_mxpanel
+.global matrix_test_mxscale_regs
 .global mat_dist
 
 // mcfg type_code constants (table_sel = 0)
@@ -86,6 +88,26 @@ mat_xmfrm_trap_count:
         .dword  0
 mat_xmfrm_trap_cause:
         .dword  0
+mat_xmfrm_trap_tval:
+        .dword  0
+mat_xmfrm_trap_mepc:
+        .dword  0
+mat_xmfrm_trap_resume:
+        .dword  0
+mat_mx_scale_double:
+        .byte   0x80
+mat_mx_scale3:
+        .rept   3
+        .byte   0x7f
+        .endr
+mat_mxfp4_a96:
+        .rept   48
+        .byte   0x21
+        .endr
+mat_mxfp4_b96:
+        .rept   48
+        .byte   0x43
+        .endr
 
 
 .section .text
@@ -607,6 +629,315 @@ matrix_test_mxlife:
         addi    sp, sp, 192
         ret
 
+.macro MXSEM_CONFIG
+        lui     t0, 8194
+        addiw   t0, t0, 512
+        csrs    mstatus, t0
+        msettilemi      1
+        msettileni      1
+        msettileki      32
+        li      t0, 0x16
+        msetcfg mcfg0, t0
+        msetcfg mcfg1, t0
+        li      t0, 0x0c
+        msetcfg mcfg4, t0
+        csrw    xmfrm, zero
+        csrw    0x808, zero
+        msyncregreset   sync1
+.endm
+
+.macro MXSEM_TRAP_RESET
+        la      t0, mat_xmfrm_trap_count
+        sd      zero, 0(t0)
+        la      t0, mat_xmfrm_trap_cause
+        li      t1, -1
+        sd      t1, 0(t0)
+        la      t0, mat_xmfrm_trap_tval
+        sd      zero, 0(t0)
+        la      t0, mat_xmfrm_trap_mepc
+        sd      zero, 0(t0)
+        la      t0, mat_xmfrm_trap_resume
+        sd      zero, 0(t0)
+.endm
+
+.macro MXSEM_TRAP_RECORD cause_offset, traps_offset
+        la      t0, mat_xmfrm_trap_cause
+        ld      t1, 0(t0)
+        sd      t1, \cause_offset(s0)
+        la      t0, mat_xmfrm_trap_count
+        ld      t1, 0(t0)
+        sd      t1, \traps_offset(s0)
+.endm
+
+# Directed QEMU/AM regression for the three former matrix semantic splits.
+# Observation slots are documented beside run_mx_semantics() in mat.c.
+matrix_test_mxsemantics:
+        addi    sp, sp, -96
+        sd      ra, 88(sp)
+        sd      s0, 80(sp)
+        sd      s1, 72(sp)
+        sd      s2, 64(sp)
+        sd      s3, 56(sp)
+        mv      s0, a0
+        csrr    s1, mtvec
+        csrr    s3, mstatus
+        csrci   mstatus, 8
+        la      t0, mxfrm_trap_handler
+        csrw    mtvec, t0
+
+        # A scale published for M=1 must not feed a later M=2 MMACC.
+        MXSEM_CONFIG
+        la      a0, mat_mxfp4_a
+        li      t0, 16
+        mla     tr0, (a0), t0
+        la      a0, mat_mxfp4_b
+        mlb     tr1, (a0), t0
+        la      a0, mat_mx_scale
+        li      t0, 1
+        MLASCALE_RAW x0, a0, t0
+        la      a0, mat_mx_scale
+        MLBSCALE_RAW x1, a0, t0
+        la      t0, mat_mx_case_c
+        li      t1, 0x12345678
+        sw      t1, 0(t0)
+        la      t0, mat_mx_case_result
+        sw      zero, 0(t0)
+        mfence
+        li      t1, 4
+        la      t0, mat_mx_case_c
+        mlc     acc0, (t0), t1
+        msettilemi      2
+        MXSEM_TRAP_RESET
+        la      t0, .Lmxsem_unpub_a_resume
+        la      t1, mat_xmfrm_trap_resume
+        sd      t0, 0(t1)
+        mfence
+        mmacc   acc0, tr1, tr0
+.Lmxsem_unpub_a_resume:
+        la      t0, mat_xmfrm_trap_resume
+        sd      zero, 0(t0)
+        msettilemi      1
+        la      t0, mat_mx_case_result
+        li      t1, 4
+        msc     acc0, (t0), t1
+        mrelease        sync1
+        li      s2, 1
+        macquire        sync1, s2
+        mfence
+        la      t0, mat_mx_case_result
+        lwu     t1, 0(t0)
+        sd      t1, 0(s0)
+        MXSEM_TRAP_RECORD 8, 16
+
+        # B scale published for N=1 must not feed a later N=2 MMACC.
+        MXSEM_CONFIG
+        la      a0, mat_mxfp4_a
+        li      t0, 16
+        mla     tr0, (a0), t0
+        la      a0, mat_mxfp4_b
+        mlb     tr1, (a0), t0
+        la      a0, mat_mx_scale
+        li      t0, 1
+        MLASCALE_RAW x0, a0, t0
+        la      a0, mat_mx_scale
+        MLBSCALE_RAW x1, a0, t0
+        la      t0, mat_mx_case_c
+        li      t1, 0x12345678
+        sw      t1, 0(t0)
+        la      t0, mat_mx_case_result
+        sw      zero, 0(t0)
+        mfence
+        li      t1, 4
+        la      t0, mat_mx_case_c
+        mlc     acc0, (t0), t1
+        msettileni      2
+        MXSEM_TRAP_RESET
+        la      t0, .Lmxsem_unpub_b_resume
+        la      t1, mat_xmfrm_trap_resume
+        sd      t0, 0(t1)
+        mfence
+        mmacc   acc0, tr1, tr0
+.Lmxsem_unpub_b_resume:
+        la      t0, mat_xmfrm_trap_resume
+        sd      zero, 0(t0)
+        msettileni      1
+        la      t0, mat_mx_case_result
+        li      t1, 4
+        msc     acc0, (t0), t1
+        mrelease        sync1
+        li      s2, 1
+        macquire        sync1, s2
+        mfence
+        la      t0, mat_mx_case_result
+        lwu     t1, 0(t0)
+        sd      t1, 24(s0)
+        MXSEM_TRAP_RECORD 32, 40
+
+        # FP4 K=96 occupies 48 bytes per row and is legal with rlenb=64.
+        MXSEM_CONFIG
+        li      t0, 96
+        msettilek       t0
+        MXSEM_TRAP_RESET
+        mfence
+        la      a0, mat_mxfp4_a96
+        li      t0, 48
+        mla     tr0, (a0), t0
+        la      a0, mat_mxfp4_b96
+        mlb     tr1, (a0), t0
+        la      a0, mat_mx_scale3
+        li      t0, 3
+        MLASCALE_RAW x0, a0, t0
+        la      a0, mat_mx_scale3
+        MLBSCALE_RAW x1, a0, t0
+        la      t0, mat_mx_case_c
+        sw      zero, 0(t0)
+        la      t0, mat_mx_case_result
+        sw      zero, 0(t0)
+        mfence
+        li      t1, 4
+        la      t0, mat_mx_case_c
+        mlc     acc0, (t0), t1
+        mmacc   acc0, tr1, tr0
+        la      t0, mat_mx_case_result
+        msc     acc0, (t0), t1
+        mrelease        sync1
+        li      s2, 1
+        macquire        sync1, s2
+        mfence
+        la      t0, mat_mx_case_result
+        lwu     t1, 0(t0)
+        sd      t1, 48(s0)
+        MXSEM_TRAP_RECORD 56, 64
+
+        # The FP4 widening must not let an FP8 load exceed one row byte.
+        MXSEM_CONFIG
+        li      t0, 96
+        msettilek       t0
+        li      t0, 0x18
+        msetcfg mcfg0, t0
+        msetcfg mcfg1, t0
+        MXSEM_TRAP_RESET
+        mfence
+        la      a0, mat_na
+        li      t0, 96
+        la      t1, .Lmxsem_fp8_resume
+        la      t2, mat_xmfrm_trap_resume
+        sd      t1, 0(t2)
+        mla     tr0, (a0), t0
+.Lmxsem_fp8_resume:
+        la      t0, mat_xmfrm_trap_resume
+        sd      zero, 0(t0)
+        mrelease        sync1
+        li      s2, 1
+        macquire        sync1, s2
+        mfence
+        MXSEM_TRAP_RECORD 72, 80
+
+        # A supplied-scale conversion with an aligned legal stride but an
+        # unaligned source base reports load-misaligned, not illegal-instruction.
+        MXSEM_CONFIG
+        li      t0, 64
+        msettilek       t0
+        MXSEM_TRAP_RESET
+        la      a0, mat_mx_scale3
+        li      t0, 2
+        MLASCALE_RAW x0, a0, t0
+        la      a0, mat_dist
+        addi    a0, a0, 1
+        sd      a0, 112(s0)
+        li      t0, 256
+        la      t1, .Lmxsem_convert_resume
+        la      t2, mat_xmfrm_trap_resume
+        sd      t1, 0(t2)
+        la      t1, .Lmxsem_convert_target
+        sd      t1, 120(s0)
+        mfence
+.Lmxsem_convert_target:
+        .insn r 0x2b, 1, 0x1a, x0, a0, t0
+.Lmxsem_convert_resume:
+        la      t0, mat_xmfrm_trap_resume
+        sd      zero, 0(t0)
+        mfence
+        MXSEM_TRAP_RECORD 88, 104
+        la      t0, mat_xmfrm_trap_tval
+        ld      t1, 0(t0)
+        sd      t1, 96(s0)
+        la      t0, mat_xmfrm_trap_mepc
+        ld      t1, 0(t0)
+        sd      t1, 128(s0)
+
+        csrw    mtvec, s1
+        csrw    mstatus, s3
+        ld      ra, 88(sp)
+        ld      s0, 80(sp)
+        ld      s1, 72(sp)
+        ld      s2, 64(sp)
+        ld      s3, 56(sp)
+        addi    sp, sp, 96
+        ret
+
+# Directed liveness check for the architectural scale registers.
+#
+# Control reloads A0; allregs fills A0..A3 and consumes A3 with B1.
+matrix_test_mxscale_regs:
+        lui     t0, 8194
+        addiw   t0, t0, 512
+        csrs    mstatus, t0
+
+        msettilemi      1
+        msettileni      1
+        msettileki      32
+        li      t0, 0x16
+        msetcfg mcfg0, t0
+        msetcfg mcfg1, t0
+        msetcfg mcfg2, t0
+        li      t0, 0x0c
+        msetcfg mcfg4, t0
+
+        msyncregreset   sync3
+
+        la      t0, mat_mxfp4_a
+        li      t1, 16
+        mla     tr0, (t0), t1
+        mla     tr2, (t0), t1
+        beqz    a0, .Lmxscale_load_b
+        li      t4, 0x16
+        msetcfg mcfg3, t4
+        mla     tr3, (t0), t1
+.Lmxscale_load_b:
+        la      t0, mat_mxfp4_b
+        mlb     tr1, (t0), t1
+        la      t0, mat_mx_scale
+        li      t1, 1
+        la      t5, mat_mx_case_c
+        sw      zero, 0(t5)
+        li      t6, 4
+        mfence
+        mlc     acc0, (t5), t6
+
+        MLASCALE_RAW x0, t0, t1
+        MLASCALE_RAW x1, t0, t1
+        MLBSCALE_RAW x1, t0, t1
+
+        bnez    a0, .Lmxscale_allregs
+        MLASCALE_RAW x0, t0, t1
+        mmacc   acc0, tr1, tr0
+        j       .Lmxscale_store
+.Lmxscale_allregs:
+        MLASCALE_RAW x2, t0, t1
+        la      t0, mat_mx_scale_double
+        MLASCALE_RAW x3, t0, t1
+        mmacc   acc0, tr1, tr3
+.Lmxscale_store:
+        la      t5, mat_mx_case_result
+        msc     acc0, (t5), t6
+        mrelease        sync3
+        li      t2, 1
+        macquire        sync3, t2
+
+        lwu     a0, 0(t5)
+        ret
+
 # Test every non-RNE xmfrm value against a valid MXFP4 mmacc. The M-mode
 # exception handler must report illegal instruction and resume after mmacc.
 # Return: C[31:0], xmfrm[39:32], mcause[47:40], trap count[55:48].
@@ -658,6 +989,8 @@ matrix_test_xmfrm:
         la      t2, mat_mx_case_c
         li      t3, 0x12345678
         sw      t3, 0(t2)
+        la      t4, mat_mx_case_result
+        sw      zero, 0(t4)
         mfence
         li      t3, 4
         mlc     acc0, (t2), t3
@@ -669,8 +1002,8 @@ matrix_test_xmfrm:
         li      a0, 1
         macquire        sync1, a0
 
-        la      t2, mat_mx_case_c
-        lw      s2, 0(t2)
+        la      t2, mat_mx_case_result
+        lwu     s2, 0(t2)
         csrr    s3, xmfrm
         la      t2, mat_xmfrm_trap_cause
         ld      t0, 0(t2)
@@ -705,9 +1038,23 @@ mxfrm_trap_handler:
         csrr    t0, mcause
         la      t1, mat_xmfrm_trap_cause
         sd      t0, 0(t1)
+        csrr    t0, mtval
+        la      t1, mat_xmfrm_trap_tval
+        sd      t0, 0(t1)
+        csrr    t0, mepc
+        la      t1, mat_xmfrm_trap_mepc
+        sd      t0, 0(t1)
+        la      t1, mat_xmfrm_trap_resume
+        ld      t2, 0(t1)
+        sd      zero, 0(t1)
+        bnez    t2, .Lmxfrm_resume
         csrr    t0, mepc
         addi    t0, t0, 4
         csrw    mepc, t0
+        j       .Lmxfrm_resume_done
+.Lmxfrm_resume:
+        csrw    mepc, t2
+.Lmxfrm_resume_done:
         la      t0, mat_xmfrm_trap_count
         ld      t1, 0(t0)
         addi    t1, t1, 1

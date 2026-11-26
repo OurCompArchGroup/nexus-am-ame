@@ -79,6 +79,8 @@ uint64_t matrix_gemm_mxcase(uint64_t mcfg, uint64_t k, const uint8_t *sa,
                             const uint8_t *b, uint32_t c, uint64_t stride);
 uint64_t matrix_test_xmfrm(uint64_t rm);
 void matrix_test_mxlife(uint64_t *observed);
+void matrix_test_mxsemantics(uint64_t *observed);
+uint32_t matrix_test_mxscale_regs(uint64_t allregs);
 typedef struct {
   uint64_t rows, tile_k, k_tiles, payload_stride, scale_stride, out_stride;
   uint64_t convert_f32; // appended opt-in; the original six offsets are unchanged
@@ -465,6 +467,63 @@ static int run_xmfrm_traps(const char *mode) {
   return failed;
 }
 
+static int run_mx_semantics(void) {
+  // Slots are documented beside matrix_test_mxsemantics in matop.S.
+  uint64_t observed[17];
+  for (unsigned i = 0; i < sizeof(observed) / sizeof(observed[0]); ++i) {
+    observed[i] = UINT64_MAX;
+  }
+  matrix_test_mxsemantics(observed);
+
+  const int unpub_a = observed[0] == 0x12345678u &&
+      observed[1] == 2 && observed[2] == 1;
+  const int unpub_b = observed[3] == 0x12345678u &&
+      observed[4] == 2 && observed[5] == 1;
+  const int fp4_k96 = observed[6] == 0x43040000u &&
+      observed[7] == UINT64_MAX && observed[8] == 0;
+  const int fp8_k96_reject = observed[9] == 2 && observed[10] == 1;
+  const int unaligned_convert = observed[11] == 4 && observed[13] == 1 &&
+      observed[12] == observed[14] && (observed[12] & 3) == 1 &&
+      observed[16] == observed[15];
+  const int failed = !unpub_a || !unpub_b || !fp4_k96 ||
+      !fp8_k96_reject || !unaligned_convert;
+
+  printf("MXSEM unpublished-A result=0x%08x cause=%llu traps=%llu %s\n",
+         (uint32_t)observed[0], (unsigned long long)observed[1],
+         (unsigned long long)observed[2], unpub_a ? "PASS" : "FAIL");
+  printf("MXSEM unpublished-B result=0x%08x cause=%llu traps=%llu %s\n",
+         (uint32_t)observed[3], (unsigned long long)observed[4],
+         (unsigned long long)observed[5], unpub_b ? "PASS" : "FAIL");
+  printf("MXSEM fp4-K96 result=0x%08x cause=0x%llx traps=%llu %s\n",
+         (uint32_t)observed[6], (unsigned long long)observed[7],
+         (unsigned long long)observed[8], fp4_k96 ? "PASS" : "FAIL");
+  printf("MXSEM fp8-K96-reject cause=%llu traps=%llu %s\n",
+         (unsigned long long)observed[9], (unsigned long long)observed[10],
+         fp8_k96_reject ? "PASS" : "FAIL");
+  printf("MXSEM unaligned-convert cause=%llu tval=0x%llx base=0x%llx "
+         "mepc=0x%llx pc=0x%llx traps=%llu %s\n",
+         (unsigned long long)observed[11],
+         (unsigned long long)observed[12], (unsigned long long)observed[14],
+         (unsigned long long)observed[16], (unsigned long long)observed[15],
+         (unsigned long long)observed[13],
+         unaligned_convert ? "PASS" : "FAIL");
+  printf("MX semantics: %s (5/5)\n", failed ? "FAIL" : "PASS");
+  return failed;
+}
+
+static int run_mxscale_regs(uint64_t allregs) {
+  const uint32_t expected = allregs ? 0x42b00000u : 0x42300000u;
+  printf("MXSCALE_REGS begin sequence=%s B=B1 mmacc_ts1=%u mmacc_ts2=1 "
+         "rows=1 K=32 wait=macquire_sync3\n",
+         allregs ? "A0,A1,A2,A3" : "A0,A1,A0", allregs ? 3u : 0u);
+  const uint32_t actual = matrix_test_mxscale_regs(allregs);
+  const int failed = actual != expected;
+  printf("MXSCALE_%s RETURNED result=%d %s actual=0x%08x expected=0x%08x\n",
+         allregs ? "ALLREGS" : "CONTROL", failed, failed ? "FAIL" : "PASS",
+         actual, expected);
+  return failed;
+}
+
 static int run_mx_lifecycle(void) {
   static const struct {
     const char *name;
@@ -559,6 +618,39 @@ static int run_mx_panel(void) {
   printf("MXpanel M=128 N=128 K=32 MLA+MLB exact_outputs=16384 mismatches=%u flags=0x%02x %s\n",
          mismatches, (unsigned)flags, !mismatches && !flags ? "PASS" : "FAIL");
   return mismatches || flags;
+}
+
+static int run_mx_scale_stride(unsigned rows, unsigned stride) {
+  static volatile uint8_t a[4 * 16] __attribute__((aligned(64)));
+  static volatile uint8_t b[4 * 16] __attribute__((aligned(64)));
+  static volatile uint8_t sa[4 * 6] __attribute__((aligned(64)));
+  static volatile uint8_t sb[4 * 6] __attribute__((aligned(64)));
+  static volatile uint32_t c[4 * 4] __attribute__((aligned(64)));
+  for (unsigned row = 0; row < rows; ++row) {
+    for (unsigned byte = 0; byte < 16; ++byte) {
+      a[row * 16 + byte] = 0x21;
+      b[row * 16 + byte] = 0x43;
+    }
+    for (unsigned byte = 0; byte < stride; ++byte) {
+      sa[row * stride + byte] = byte == 0 ? 127 : 0xee;
+      sb[row * stride + byte] = byte == 0 ? 127 : 0xee;
+    }
+  }
+  for (unsigned i = 0; i < rows * rows; ++i) c[i] = 0x7fc56789;
+  const MxPanelConfig config = {rows, 32, 1, 16, stride, rows * sizeof(float), 0};
+  const uint64_t flags = matrix_test_mxpanel((const uint8_t *)a,
+      (const uint8_t *)b, (const uint8_t *)sa, (const uint8_t *)sb,
+      (uint32_t *)c, &config);
+  unsigned mismatches = 0;
+  for (unsigned i = 0; i < rows * rows; ++i) {
+    mismatches += c[i] != 0x42300000u;
+  }
+  const int failed = mismatches != 0 || flags != 0;
+  printf("MXScaleStride M=%u N=%u K=32 row_bytes=1 stride=%u outputs=%u "
+         "mismatches=%u flags=0x%02x %s\n", rows, rows, stride, rows * rows,
+         mismatches, (unsigned)flags,
+         failed ? "FAIL" : "PASS");
+  return failed;
 }
 
 #ifndef MXFP_PERF_MN
@@ -3007,12 +3099,27 @@ int main(const char *args) {
   } else if (strcmp(mode, "xmfrmtrap") == 0) {
     printf("GEMM Test started! MX xmfrm non-RNE trap/no-mutation\n");
     ret = run_xmfrm_traps(mode);
+  } else if (strcmp(mode, "mxsemantics") == 0) {
+    printf("GEMM Test started! MX scale publication, FP4 capacity, and alignment\n");
+    ret = run_mx_semantics();
+  } else if (strcmp(mode, "mxscale-allregs") == 0) {
+    printf("GEMM Test started! MX scale register liveness\n");
+    ret = run_mxscale_regs(1);
+  } else if (strcmp(mode, "mxscale-control") == 0) {
+    printf("GEMM Test started! MX scale register same-ID control\n");
+    ret = run_mxscale_regs(0);
   } else if (strcmp(mode, "mxlife") == 0) {
     printf("GEMM Test started! MX flags/MINIT/scale lifecycle\n");
     ret = run_mx_lifecycle();
   } else if (strcmp(mode, "mxpanel") == 0) {
     printf("GEMM Test started! native-shaped MLA/MLB FP4 panel\n");
     ret = run_mx_panel();
+  } else if (strcmp(mode, "mxscalestride") == 0) {
+    printf("GEMM Test started! padded noncompact scale row stride\n");
+    ret = run_mx_scale_stride(2, 6);
+  } else if (strcmp(mode, "mxscalestride1") == 0) {
+    printf("GEMM Test started! single-row padded scale row stride\n");
+    ret = run_mx_scale_stride(1, 6);
   } else if (strcmp(mode, MXFP_PERF_MN == 512 ?
                     "mxperf512" : "mxperf128x128x512") == 0) {
 #if defined(MXFP_CONVERT_LOAD) && MXFP_CONVERT_LOAD
@@ -3037,7 +3144,7 @@ int main(const char *args) {
     return run_mxpreflight128();
 #endif
   } else {
-    printf("Unknown mainargs \"%s\"; expected {128, 64, mxfp8e4, mxfp8e5, mxfp4, mxall, mxexact, mxff, xmfrmtrap, mxlife, mxpanel, mxperf512, mxquant128, mxpreflight128}\n", mode);
+    printf("Unknown mainargs \"%s\"; expected {128, 64, mxfp8e4, mxfp8e5, mxfp4, mxall, mxexact, mxff, xmfrmtrap, mxsemantics, mxscale-allregs, mxscale-control, mxlife, mxpanel, mxscalestride, mxscalestride1, mxperf512, mxquant128, mxpreflight128}\n", mode);
     return 1;
   }
 

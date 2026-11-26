@@ -213,7 +213,7 @@ endif
 ifeq ($(MXFP_RMS_DYNAMIC),1)
 MXFP_QUANT_BUILD := $(CURDIR)/build/rmsdyn512-am
 endif
-MXFP_QUANT_SYSROOT ?= $(RISCV_SYSROOT)
+MXFP_QUANT_SYSROOT ?= /nfs/home/share/riscv-toolchain-gcc15-240613/sysroot
 MXFP_GGML := $(abspath $(AM_HOME)/../software/llama.cpp/ggml)
 MXFP_GGML_SRCS := $(MXFP_GGML)/src/ggml-cpu/quants.c \
                   $(MXFP_GGML)/src/ggml-quants.c \
