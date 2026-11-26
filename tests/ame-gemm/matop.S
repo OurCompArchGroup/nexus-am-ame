@@ -112,6 +112,256 @@ mat_mxfp4_b96:
 
 .section .text
 
+#if defined(MXFP_RVV_PACK) && MXFP_RVV_PACK
+# Reuse this AM assembly owner. Integer register names below are encoding
+# placeholders only: the custom operation reads/writes VECTOR v1/v8/v16.
+.global vector_mxfp4_pack32
+vector_mxfp4_pack32:
+        mv      t5, a1
+        li      t0, 32
+        vsetvli zero, t0, e32, m8, tu, mu
+        vle32.v v8, (a0)
+        vmv.v.x v16, a2
+        j       .Lfp4_mx_unmasked
+
+#if defined(MXFP_RVV_PACK_BATCH) && MXFP_RVV_PACK_BATCH
+#ifndef MXFP_RVV_PACK_LMUL
+#define MXFP_RVV_PACK_LMUL 8
+#endif
+#if MXFP_RVV_PACK_LMUL != 8 && MXFP_RVV_PACK_LMUL != 4 && MXFP_RVV_PACK_LMUL != 2
+#error "MXFP_RVV_PACK_LMUL must be 8, 4, or 2"
+#endif
+#if MXFP_RVV_PACK_LMUL != 8 && defined(MXFP_RVV_PACK_WHOLE) && MXFP_RVV_PACK_WHOLE
+#error "Shorter-LMUL diagnostics require the existing bounded stores"
+#endif
+# LMUL 4/2 split PACK_MX only when vlenb == 16; otherwise reuse m8.
+# Keep the original m8 load/broadcast, K32 scale and adjacent-nibble output.
+# Same K32 instruction and adjacent-nibble stores as pack32, with one real
+# final sticky-fcsr read. Zero blocks perform no memory accesses.
+.global vector_mxfp4_pack_blocks
+vector_mxfp4_pack_blocks:
+        mv      t3, a0
+        mv      t5, a1
+        mv      t2, a2
+        mv      t4, a3
+#if MXFP_RVV_PACK_LMUL == 8
+        beqz    t4, .Lfp4_batch_done
+#else
+        beqz    t4, .Lfp4_batch_fcsr
+        # Check once per nonzero call; t6 is unchanged by either loop path.
+        csrr    t6, vlenb
+        addi    t6, t6, -16
+#endif
+#if defined(MXFP_RVV_PACK_WHOLE) && MXFP_RVV_PACK_WHOLE
+        # A K32 packed block is exactly one physical register only at
+        # VLEN128. Preserve bounded stores elsewhere, including unaligned
+        # outputs. t6 is a per-call choice; zero blocks never touch VL.
+        csrr    t6, vlenb
+        addi    t6, t6, -16
+        andi    t0, t5, 15
+        or      t6, t6, t0
+#endif
+.Lfp4_batch_next:
+        li      t0, 32
+        vsetvli zero, t0, e32, m8, tu, mu
+        vle32.v v8, (t3)
+        lbu     t1, 0(t2)
+        vmv.v.x v16, t1
+        # Same PACK_MX as .Lfp4_mx_unmasked, no new conversion arithmetic.
+#if MXFP_RVV_PACK_LMUL != 8
+        beqz    t6, .Lfp4_batch_short1
+#endif
+        .insn r 0x7b, 1, 0x07, x1, x16, x8
+#if defined(MXFP_RVV_PACK_WHOLE) && MXFP_RVV_PACK_WHOLE
+        bnez    t6, .Lfp4_batch_store1_bounded
+        vs1r.v  v1, (t5)
+        j       .Lfp4_batch_store1_done
+.Lfp4_batch_store1_bounded:
+#endif
+        vsetivli zero, 16, e8, m1, tu, mu
+        vse8.v  v1, (t5)
+#if MXFP_RVV_PACK_LMUL != 8
+        j       .Lfp4_batch_store1_done
+.Lfp4_batch_short1:
+#if MXFP_RVV_PACK_LMUL == 4
+        vsetivli zero, 16, e32, m4, tu, mu
+        .insn r 0x7b, 1, 0x07, x1, x16, x8
+        .insn r 0x7b, 1, 0x07, x3, x20, x12
+        vsetivli zero, 8, e8, m1, tu, mu
+        vse8.v  v1, (t5)
+        addi    t0, t5, 8
+        vse8.v  v3, (t0)
+#else
+        vsetivli zero, 8, e32, m2, tu, mu
+        .insn r 0x7b, 1, 0x07, x1, x16, x8
+        .insn r 0x7b, 1, 0x07, x3, x18, x10
+        .insn r 0x7b, 1, 0x07, x5, x20, x12
+        .insn r 0x7b, 1, 0x07, x7, x22, x14
+        vsetivli zero, 4, e8, m1, tu, mu
+        vse8.v  v1, (t5)
+        addi    t0, t5, 4
+        vse8.v  v3, (t0)
+        addi    t0, t0, 4
+        vse8.v  v5, (t0)
+        addi    t0, t0, 4
+        vse8.v  v7, (t0)
+#endif
+#endif
+.Lfp4_batch_store1_done:
+        addi    t3, t3, 128
+        addi    t5, t5, 16
+        addi    t2, t2, 1
+        addi    t4, t4, -1
+#if defined(MXFP_RVV_PACK_PAIR) && MXFP_RVV_PACK_PAIR
+        # The original m8 pair is unchanged. Shorter-LMUL mode 2 uses
+        # v2/v4 (m4) or v2/v4/v6/v24 (m2), disjoint from the first pool.
+        # Matched two-block schedule. Mode 1 uses v1 twice; mode 2 changes
+        # only the second PACK_MX/store to v2. Both destinations are disjoint
+        # from the unchanged m8 sources v8-v15 and scales v16-v23.
+        beqz    t4, .Lfp4_batch_done
+        li      t0, 32
+        vsetvli zero, t0, e32, m8, tu, mu
+        vle32.v v8, (t3)
+        lbu     t1, 0(t2)
+        vmv.v.x v16, t1
+#if MXFP_RVV_PACK_LMUL != 8
+        beqz    t6, .Lfp4_batch_short2
+#endif
+#if MXFP_RVV_PACK_PAIR == 2
+        .insn r 0x7b, 1, 0x07, x2, x16, x8
+#else
+        .insn r 0x7b, 1, 0x07, x1, x16, x8
+#endif
+#if defined(MXFP_RVV_PACK_WHOLE) && MXFP_RVV_PACK_WHOLE
+        bnez    t6, .Lfp4_batch_store2_bounded
+#if MXFP_RVV_PACK_PAIR == 2
+        vs1r.v  v2, (t5)
+#else
+        vs1r.v  v1, (t5)
+#endif
+        j       .Lfp4_batch_store2_done
+.Lfp4_batch_store2_bounded:
+#endif
+        vsetivli zero, 16, e8, m1, tu, mu
+#if MXFP_RVV_PACK_PAIR == 2
+        vse8.v  v2, (t5)
+#else
+        vse8.v  v1, (t5)
+#endif
+#if MXFP_RVV_PACK_LMUL != 8
+        j       .Lfp4_batch_store2_done
+.Lfp4_batch_short2:
+#if MXFP_RVV_PACK_LMUL == 4
+        vsetivli zero, 16, e32, m4, tu, mu
+#if MXFP_RVV_PACK_PAIR == 2
+        .insn r 0x7b, 1, 0x07, x2, x16, x8
+        .insn r 0x7b, 1, 0x07, x4, x20, x12
+        vsetivli zero, 8, e8, m1, tu, mu
+        vse8.v  v2, (t5)
+        addi    t0, t5, 8
+        vse8.v  v4, (t0)
+#else
+        .insn r 0x7b, 1, 0x07, x1, x16, x8
+        .insn r 0x7b, 1, 0x07, x3, x20, x12
+        vsetivli zero, 8, e8, m1, tu, mu
+        vse8.v  v1, (t5)
+        addi    t0, t5, 8
+        vse8.v  v3, (t0)
+#endif
+#else
+        vsetivli zero, 8, e32, m2, tu, mu
+#if MXFP_RVV_PACK_PAIR == 2
+        .insn r 0x7b, 1, 0x07, x2, x16, x8
+        .insn r 0x7b, 1, 0x07, x4, x18, x10
+        .insn r 0x7b, 1, 0x07, x6, x20, x12
+        .insn r 0x7b, 1, 0x07, x24, x22, x14
+        vsetivli zero, 4, e8, m1, tu, mu
+        vse8.v  v2, (t5)
+        addi    t0, t5, 4
+        vse8.v  v4, (t0)
+        addi    t0, t0, 4
+        vse8.v  v6, (t0)
+        addi    t0, t0, 4
+        vse8.v  v24, (t0)
+#else
+        .insn r 0x7b, 1, 0x07, x1, x16, x8
+        .insn r 0x7b, 1, 0x07, x3, x18, x10
+        .insn r 0x7b, 1, 0x07, x5, x20, x12
+        .insn r 0x7b, 1, 0x07, x7, x22, x14
+        vsetivli zero, 4, e8, m1, tu, mu
+        vse8.v  v1, (t5)
+        addi    t0, t5, 4
+        vse8.v  v3, (t0)
+        addi    t0, t0, 4
+        vse8.v  v5, (t0)
+        addi    t0, t0, 4
+        vse8.v  v7, (t0)
+#endif
+#endif
+#endif
+.Lfp4_batch_store2_done:
+        addi    t3, t3, 128
+        addi    t5, t5, 16
+        addi    t2, t2, 1
+        addi    t4, t4, -1
+#endif
+        bnez    t4, .Lfp4_batch_next
+.Lfp4_batch_done:
+#if MXFP_RVV_PACK_LMUL != 8 || (defined(MXFP_RVV_PACK_WHOLE) && MXFP_RVV_PACK_WHOLE)
+        # Nonzero calls retain the old wrapper's final VL/vtype. Zero
+        # calls must not change the caller's incoming vector configuration.
+#if MXFP_RVV_PACK_LMUL == 8
+        beqz    a3, .Lfp4_batch_fcsr
+#endif
+        vsetivli zero, 16, e8, m1, tu, mu
+.Lfp4_batch_fcsr:
+#endif
+        frcsr   a0
+        ret
+#endif
+
+.global vector_test_fp4_pack
+vector_test_fp4_pack:
+        # values/scales/out/old/config; config = vl/vtype/mask/mode.
+        mv      t5, a2
+        vsetivli zero, 16, e8, m1, tu, mu
+        vle8.v  v1, (a3)
+        ld      t0, 0(a4)
+        ld      t1, 8(a4)
+        ld      t4, 24(a4)
+        vsetvl  zero, t0, t1
+        vle32.v v8, (a0)
+        vle32.v v16, (a1)
+        addi    t1, a4, 16
+        vlm.v   v0, (t1)
+        andi    t0, t4, 1
+        bnez    t0, .Lfp4_test_mx
+        andi    t0, t4, 2
+        bnez    t0, .Lfp4_rne_masked
+        # funct6=000010, vm=1, vs2=v8, vs1=0, vd=v1.
+        .insn r 0x7b, 1, 0x05, x1, x0, x8
+        j       .Lfp4_store
+.Lfp4_rne_masked:
+        .insn r 0x7b, 1, 0x04, x1, x0, x8
+        j       .Lfp4_store
+.Lfp4_test_mx:
+        andi    t0, t4, 2
+        bnez    t0, .Lfp4_mx_masked
+.Lfp4_mx_unmasked:
+        # funct6=000011, vm=1, vs2=v8, vs1=v16, vd=v1.
+        .insn r 0x7b, 1, 0x07, x1, x16, x8
+        j       .Lfp4_store
+.Lfp4_mx_masked:
+        .insn r 0x7b, 1, 0x06, x1, x16, x8
+.Lfp4_store:
+        # Packed vd is EMUL=LMUL/8. Store the physical register so the test
+        # also observes preservation above the logical destination extent.
+        vsetivli zero, 16, e8, m1, tu, mu
+        vse8.v  v1, (t5)
+        frcsr   a0
+        ret
+#endif
+
 matrix_init_128:
         # set mstatus, enable matrix extension (XS|VS bits)
         lui a0, 8194
